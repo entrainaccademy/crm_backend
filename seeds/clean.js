@@ -11,19 +11,20 @@ import Course from "../models/Course.js";
 import Task from "../models/Task.js";
 
 const seedCourses = [
-  { name: "Professional Chef Diploma", fee: 180000, duration: "1 Year" },
-  { name: "Bakery & Patisserie Diploma", fee: 150000, duration: "1 Year" },
-  { name: "Culinary Arts Certificate", fee: 85000, duration: "6 Months" },
-  { name: "Advanced Baking Certificate", fee: 65000, duration: "6 Months" },
-  { name: "Food Production & Kitchen Management", fee: 120000, duration: "9 Months" },
-  { name: "Barista & Beverage Arts", fee: 45000, duration: "3 Months" },
+  { name: "Dessert Workshop", fee: 180000, duration: "1 Month" },
+  { name: "One Day Shawarma and Shawai Course", fee: 150000, duration: "1 Day" },
+  { name: "One Week Shawarma and Shawai Course", fee: 85000, duration: "1 Week" },
+  { name: "One Day Fried Chicken Course", fee: 65000, duration: "1 Day" },
+  { name: "One Week Fried Chicken Course", fee: 120000, duration: "1 Week" },
+  { name: "One Week Arabian Cuisine Course", fee: 45000, duration: "1 Week" },
 ];
 
 const defaultAdmin = {
   customId: 1,
   name: "Admin User",
   short: "Admin",
-  email: "admin@entrain.in",
+  email: (process.env.BOOTSTRAP_ADMIN_EMAIL || "admin@entrain.in").trim().toLowerCase(),
+  password: process.env.BOOTSTRAP_ADMIN_PASSWORD || "pass",
   phone: "+91 98470 12000",
   role: "Super Admin",
   team: "Management",
@@ -31,39 +32,48 @@ const defaultAdmin = {
   target: 1000000,
   sales: 0,
   conversions: 0,
+  status: "Active",
 };
 
 const cleanDB = async () => {
   try {
     await connectDB();
-    console.log("🧹 Clearing all dummy data from MongoDB Atlas...");
+    console.log("🧹 Clearing all dummy data and users from MongoDB Atlas...");
 
-    // Remove all dummy operational data
+    // Remove all operational records
     const leadsRes = await Lead.deleteMany({});
     const followupsRes = await Followup.deleteMany({});
     const callsRes = await Call.deleteMany({});
     const tasksRes = await Task.deleteMany({});
 
-    console.log(`✅ Removed ${leadsRes.deletedCount} dummy leads.`);
-    console.log(`✅ Removed ${followupsRes.deletedCount} dummy follow-ups.`);
-    console.log(`✅ Removed ${callsRes.deletedCount} dummy calls.`);
-    console.log(`✅ Removed ${tasksRes.deletedCount} dummy tasks.`);
+    console.log(`✅ Removed ${leadsRes.deletedCount} leads.`);
+    console.log(`✅ Removed ${followupsRes.deletedCount} follow-ups.`);
+    console.log(`✅ Removed ${callsRes.deletedCount} calls.`);
+    console.log(`✅ Removed ${tasksRes.deletedCount} tasks.`);
 
-    // Ensure courses exist
-    const courseCount = await Course.countDocuments();
-    if (courseCount === 0) {
-      await Course.insertMany(seedCourses);
-      console.log("✅ Default course catalog initialized.");
+    // Remove all dummy users, keep only the Super Admin
+    const usersRes = await User.deleteMany({ email: { $ne: defaultAdmin.email } });
+    console.log(`✅ Removed ${usersRes.deletedCount} dummy user accounts.`);
+
+    // Ensure Super Admin exists with valid password
+    let admin = await User.findOne({ email: defaultAdmin.email });
+    if (!admin) {
+      admin = await User.create(defaultAdmin);
+      console.log(`✅ Created Super Admin account (${defaultAdmin.email}).`);
+    } else {
+      admin.role = "Super Admin";
+      admin.status = "Active";
+      admin.password = defaultAdmin.password;
+      await admin.save();
+      console.log(`✅ Super Admin account verified (${defaultAdmin.email}).`);
     }
 
-    // Ensure at least default Admin exists
-    const userCount = await User.countDocuments();
-    if (userCount === 0) {
-      await User.create(defaultAdmin);
-      console.log("✅ Default admin user created.");
-    }
+    // Ensure official courses catalog is synced
+    await Course.deleteMany({});
+    await Course.insertMany(seedCourses);
+    console.log(`✅ Initialized ${seedCourses.length} official courses.`);
 
-    console.log("\n🎉 All dummy data removed successfully! Database is now clean.\n");
+    console.log("\n🎉 All backend data cleared! Database is completely fresh with only Super Admin.\n");
     process.exit(0);
   } catch (error) {
     console.error("❌ Error cleaning database:", error);
