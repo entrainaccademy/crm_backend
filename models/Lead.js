@@ -42,7 +42,6 @@ const leadSchema = new mongoose.Schema(
       default: "Meta Ads",
     },
     assigned: { type: String, default: "Unassigned" },
-    team: { type: String, default: "Team Alpha" },
     status: {
       type: String,
       enum: [

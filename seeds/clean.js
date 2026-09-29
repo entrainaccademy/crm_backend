@@ -27,8 +27,6 @@ const defaultAdmin = {
   password: process.env.BOOTSTRAP_ADMIN_PASSWORD || "pass",
   phone: "+91 98470 12000",
   role: "Super Admin",
-  team: "Management",
-  leader: "",
   target: 1000000,
   sales: 0,
   conversions: 0,

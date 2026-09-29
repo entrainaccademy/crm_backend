@@ -22,13 +22,11 @@ const userSchema = new mongoose.Schema(
         "Manager",
         "HR",
         "Data Analytics Manager",
-        "Team Leader",
+        "Team Lead",
         "Sales Executive",
       ],
       default: "Sales Executive",
     },
-    team: { type: String, default: "Team Alpha" },
-    leader: { type: String, default: "" },
     target: { type: Number, default: 500000 },
     sales: { type: Number, default: 0 },
     conversions: { type: Number, default: 0 },
@@ -58,6 +56,11 @@ userSchema.pre("save", async function (next) {
 userSchema.methods.matchPassword = async function (enteredPassword) {
   return await bcrypt.compare(enteredPassword, this.password);
 };
+
+userSchema.index(
+  { role: 1 },
+  { unique: true, partialFilterExpression: { role: "Team Lead" } }
+);
 
 const User = mongoose.model("User", userSchema);
 

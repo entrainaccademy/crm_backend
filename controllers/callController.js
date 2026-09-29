@@ -1,6 +1,5 @@
 import Call from "../models/Call.js";
-import User from "../models/User.js";
-import { isExecutive, isLeader } from "../middleware/scope.js";
+import { isExecutive } from "../middleware/scope.js";
 
 // @desc    Get all call logs
 // @route   GET /api/calls
@@ -22,9 +21,6 @@ export const getCalls = async (req, res) => {
     if (assigned && assigned !== "All") query.assigned = assigned;
 
     if (isExecutive(req.user)) query.assigned = req.user.name;
-    if (isLeader(req.user)) {
-      query.assigned = { $in: (await User.find({ team: req.user.team }).select("name")).map((user) => user.name) };
-    }
     const calls = await Call.find(query).sort("-createdAt");
 
     res.json({
@@ -43,7 +39,6 @@ export const logCall = async (req, res) => {
   try {
     const data = { ...req.body };
     if (isExecutive(req.user)) data.assigned = req.user.name;
-    if (isLeader(req.user) && !(await User.exists({ name: data.assigned, team: req.user.team }))) return res.status(403).json({ success: false, message: "Access denied" });
     const call = await Call.create(data);
     res.status(201).json({ success: true, data: call });
   } catch (error) {
@@ -56,9 +51,6 @@ export const logCall = async (req, res) => {
 export const deleteCall = async (req, res) => {
   try {
     const query = { _id: req.params.id };
-    if (isLeader(req.user)) {
-      query.assigned = { $in: (await User.find({ team: req.user.team }).select("name")).map((user) => user.name) };
-    }
     const call = await Call.findOneAndDelete(query);
     if (!call) {
       return res.status(404).json({ success: false, message: "Call log not found" });

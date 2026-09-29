@@ -9,7 +9,7 @@ import {
 
 const router = express.Router();
 
-router.route("/").get(authorizeRoles("Super Admin", "Manager", "HR", "Team Leader"), getTasks).post(authorizeRoles("Super Admin", "Manager", "HR", "Team Leader"), createTask);
-router.route("/:id").put(authorizeRoles("Super Admin", "Manager", "HR", "Team Leader"), updateTask).delete(authorizeRoles("Super Admin", "Manager", "HR", "Team Leader"), deleteTask);
+router.route("/").get(authorizeRoles("Super Admin", "Manager", "HR"), getTasks).post(authorizeRoles("Super Admin", "Manager", "HR"), createTask);
+router.route("/:id").put(authorizeRoles("Super Admin", "Manager", "HR"), updateTask).delete(authorizeRoles("Super Admin", "Manager", "HR"), deleteTask);
 
 export default router;

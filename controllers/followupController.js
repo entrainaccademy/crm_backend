@@ -1,6 +1,6 @@
 import Followup from "../models/Followup.js";
 import Lead from "../models/Lead.js";
-import { applyAssignmentScope, canAccessAssigned, isExecutive, isLeader } from "../middleware/scope.js";
+import { applyAssignmentScope, canAccessAssigned, isExecutive } from "../middleware/scope.js";
 
 // @desc    Get all followups with filtering
 // @route   GET /api/followups
@@ -53,10 +53,7 @@ export const createFollowup = async (req, res) => {
     const data = { ...req.body };
     const relatedLead = await Lead.findOne({ customId: Number(data.leadId) });
     if (!relatedLead || !canAccessAssigned(req.user, relatedLead)) return res.status(403).json({ success: false, message: "Lead access denied" });
-    if (isExecutive(req.user)) { data.assigned = req.user.name; data.team = req.user.team; }
-    if (isLeader(req.user) && data.team !== req.user.team) return res.status(403).json({ success: false, message: "Access denied" });
     data.assigned = relatedLead.assigned;
-    data.team = relatedLead.team;
     const followup = await Followup.create(data);
     res.status(201).json({ success: true, data: followup });
   } catch (error) {
@@ -73,8 +70,7 @@ export const updateFollowup = async (req, res) => {
 
     applyAssignmentScope(req.user, query);
     const updates = { ...req.body };
-    if (isExecutive(req.user) && (updates.assigned !== undefined && updates.assigned !== req.user.name || updates.team !== undefined && updates.team !== req.user.team)) return res.status(403).json({ success: false, message: "Access denied" });
-    if (isLeader(req.user) && updates.team !== undefined && updates.team !== req.user.team) return res.status(403).json({ success: false, message: "Access denied" });
+    if (isExecutive(req.user) && updates.assigned !== undefined && updates.assigned !== req.user.name) return res.status(403).json({ success: false, message: "Access denied" });
     if (updates.leadId !== undefined) delete updates.leadId;
     const followup = await Followup.findOneAndUpdate(query, updates, {
       new: true,

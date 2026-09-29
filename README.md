@@ -4,6 +4,8 @@ Configure `MONGODB_URI` and `JWT_SECRET` (at least 32 characters) in the backend
 
 Accounts are created by a Super Admin, who chooses each user's role and temporary password. Public sign-up is disabled. To create the first administrator, set `BOOTSTRAP_ADMIN_EMAIL` and `BOOTSTRAP_ADMIN_PASSWORD` (at least 12 characters), then run `npm run bootstrap-admin`. Running that command again for the same Super Admin email updates that administrator's password without deleting data.
 
-Start the API with `npm run dev` or `npm start`. The frontend uses `NEXT_PUBLIC_API_URL`, defaulting to `http://localhost:5000/api`. Sign in with the administrator account and create team accounts in Users & Roles.
+Start the API with `npm run dev` or `npm start`. The frontend uses `NEXT_PUBLIC_API_URL`, defaulting to `http://localhost:5000/api`. Sign in with the administrator account and create staff accounts in Users & Roles.
+
+Only one account can have the `Team Lead` role. That account can view all sales executives' leads, follow-ups, calls, and performance. It cannot change sales records or manage users.
 
 `npm run seed` replaces the demo collections. It requires `SEED_USER_PASSWORD` (at least 12 characters) and should only be run against a disposable demo database.

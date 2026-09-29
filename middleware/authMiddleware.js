@@ -13,6 +13,9 @@ export const protect = async (req, res, next) => {
       if (!req.user || req.user.status !== "Active") {
         return res.status(401).json({ success: false, message: "Account is unavailable" });
       }
+      if (!User.schema.path("role").enumValues.includes(req.user.role)) {
+        return res.status(403).json({ success: false, message: "Account role is no longer supported. Contact your administrator." });
+      }
       return next();
     } catch (error) {
       return res.status(401).json({ success: false, message: "Not authorized, token invalid or expired" });
