@@ -1,7 +1,6 @@
 import Lead from "../models/Lead.js";
 import Followup from "../models/Followup.js";
-import User from "../models/User.js";
-import { applyAssignmentScope, canAccessAssigned, isExecutive, isLeader } from "../middleware/scope.js";
+import { applyAssignmentScope, canAccessAssigned, isExecutive } from "../middleware/scope.js";
 
 // @desc    Get all leads with filters & search
 // @route   GET /api/leads
@@ -12,7 +11,6 @@ export const getLeads = async (req, res) => {
       status,
       source,
       assigned,
-      team,
       priority,
       service,
       startDate,
@@ -36,7 +34,6 @@ export const getLeads = async (req, res) => {
     if (status && status !== "All") query.status = status;
     if (source && source !== "All") query.source = source;
     if (assigned && assigned !== "All") query.assigned = assigned;
-    if (team && team !== "All") query.team = team;
     if (priority && priority !== "All") query.priority = priority;
     if (service && service !== "All") query.service = service;
 
@@ -97,11 +94,6 @@ export const createLead = async (req, res) => {
     };
     if (isExecutive(req.user)) {
       leadData.assigned = req.user.name;
-      leadData.team = req.user.team;
-    } else if (isLeader(req.user)) {
-      if (leadData.team && leadData.team !== req.user.team) return res.status(403).json({ success: false, message: "Access denied" });
-      if (!(await User.exists({ name: leadData.assigned, team: req.user.team, status: "Active" }))) return res.status(403).json({ success: false, message: "Assignee must be on your team" });
-      leadData.team = req.user.team;
     }
 
     // If initial activity is not provided, add default
@@ -145,7 +137,6 @@ export const createLead = async (req, res) => {
         email: lead.email,
         service: lead.service,
         assigned: lead.assigned,
-        team: lead.team,
         purpose: "Course counselling",
         type: "Call",
         date: lead.date,
@@ -173,9 +164,7 @@ export const updateLead = async (req, res) => {
     if (!canAccessAssigned(req.user, oldLead)) return res.status(403).json({ success: false, message: "Access denied" });
 
     const updates = { ...req.body };
-    if (isExecutive(req.user) && (updates.assigned !== undefined && updates.assigned !== req.user.name || updates.team !== undefined && updates.team !== req.user.team)) return res.status(403).json({ success: false, message: "Access denied" });
-    if (isLeader(req.user) && updates.team !== undefined && updates.team !== req.user.team) return res.status(403).json({ success: false, message: "Access denied" });
-    if (isLeader(req.user) && updates.assigned && !(await User.exists({ name: updates.assigned, team: req.user.team, status: "Active" }))) return res.status(403).json({ success: false, message: "Assignee must be on your team" });
+    if (isExecutive(req.user) && updates.assigned !== undefined && updates.assigned !== req.user.name) return res.status(403).json({ success: false, message: "Access denied" });
 
     // Record activity if status changed
     if (updates.status && updates.status !== oldLead.status) {
@@ -285,16 +274,14 @@ export const addLeadNote = async (req, res) => {
 export const batchAssignLeads = async (req, res) => {
   try {
     if (isExecutive(req.user)) return res.status(403).json({ success: false, message: "Access denied" });
-    const { leadIds, assigned, team } = req.body;
-    if (isLeader(req.user) && team !== req.user.team) return res.status(403).json({ success: false, message: "Access denied" });
-    if (isLeader(req.user) && !(await User.exists({ name: assigned, team: req.user.team, status: "Active" }))) return res.status(403).json({ success: false, message: "Assignee must be on your team" });
+    const { leadIds, assigned } = req.body;
     if (!leadIds || !leadIds.length) {
       return res.status(400).json({ success: false, message: "No lead IDs provided" });
     }
 
     await Lead.updateMany(
       applyAssignmentScope(req.user, { customId: { $in: leadIds } }),
-      { $set: { assigned, team } }
+      { $set: { assigned } }
     );
 
     res.json({ success: true, message: `Successfully assigned ${leadIds.length} leads to ${assigned}` });

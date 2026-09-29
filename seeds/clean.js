@@ -26,8 +26,6 @@ const defaultAdmin = {
   email: "admin@entrain.in",
   phone: "+91 98470 12000",
   role: "Super Admin",
-  team: "Management",
-  leader: "",
   target: 1000000,
   sales: 0,
   conversions: 0,

@@ -4,6 +4,6 @@ import { getDashboardStats } from "../controllers/dashboardController.js";
 
 const router = express.Router();
 
-router.get("/stats", authorizeRoles("Super Admin", "Manager", "Data Analytics Manager"), getDashboardStats);
+router.get("/stats", authorizeRoles("Super Admin", "Manager", "Data Analytics Manager", "Team Lead"), getDashboardStats);
 
 export default router;

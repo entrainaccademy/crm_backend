@@ -25,7 +25,6 @@ const setupSuperAdmin = async () => {
         password,
         role: "Super Admin",
         status: "Active",
-        team: "Management",
       });
       console.log(`✅ Super Admin account created successfully for ${email}`);
     }

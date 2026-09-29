@@ -12,7 +12,6 @@ const followupSchema = new mongoose.Schema(
     service: { type: String, trim: true },
     source: { type: String, default: "Website" },
     assigned: { type: String, default: "Unassigned" },
-    team: { type: String, default: "Team Alpha" },
     status: { type: String, default: "Follow-up" },
     priority: { type: String, default: "Medium" },
     purpose: {
