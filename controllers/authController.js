@@ -2,7 +2,8 @@ import jwt from "jsonwebtoken";
 import User from "../models/User.js";
 
 const generateToken = (id) => {
-  return jwt.sign({ id }, process.env.JWT_SECRET || "crm_jwt_secret_key", {
+  if (!process.env.JWT_SECRET) throw new Error("JWT secret is not configured");
+  return jwt.sign({ id }, process.env.JWT_SECRET, {
     expiresIn: "30d",
   });
 };
@@ -15,7 +16,7 @@ export const login = async (req, res) => {
 
     const user = await User.findOne({ email });
 
-    if (user && (await user.matchPassword(password))) {
+    if (user && user.status === "Active" && password && (await user.matchPassword(password))) {
       res.json({
         success: true,
         data: {
@@ -36,46 +37,6 @@ export const login = async (req, res) => {
   }
 };
 
-// @desc    Register a new user
-// @route   POST /api/auth/register
-export const register = async (req, res) => {
-  try {
-    const { name, email, password, role, team } = req.body;
-
-    const userExists = await User.findOne({ email });
-    if (userExists) {
-      return res.status(400).json({ success: false, message: "User already exists" });
-    }
-
-    const highestUser = await User.findOne().sort("-customId");
-    const nextCustomId = (highestUser?.customId || 0) + 1;
-
-    const user = await User.create({
-      customId: nextCustomId,
-      name,
-      short: name.split(" ")[0],
-      email,
-      password: password || "crm123",
-      role: role || "Sales Executive",
-      team: team || "Team Alpha",
-    });
-
-    res.status(201).json({
-      success: true,
-      data: {
-        _id: user._id,
-        customId: user.customId,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        team: user.team,
-        token: generateToken(user._id),
-      },
-    });
-  } catch (error) {
-    res.status(400).json({ success: false, message: error.message });
-  }
-};
 
 // @desc    Get current logged in user profile
 // @route   GET /api/auth/me

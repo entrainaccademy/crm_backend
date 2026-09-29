@@ -1,5 +1,7 @@
 import Lead from "../models/Lead.js";
 import Followup from "../models/Followup.js";
+import User from "../models/User.js";
+import { applyAssignmentScope, canAccessAssigned, isExecutive, isLeader } from "../middleware/scope.js";
 
 // @desc    Get all leads with filters & search
 // @route   GET /api/leads
@@ -42,6 +44,7 @@ export const getLeads = async (req, res) => {
       query.date = { $gte: startDate, $lte: endDate };
     }
 
+    applyAssignmentScope(req.user, query);
     const leads = await Lead.find(query)
       .sort(sort)
       .limit(Number(limit))
@@ -71,6 +74,7 @@ export const getLeadById = async (req, res) => {
     if (!lead) {
       return res.status(404).json({ success: false, message: "Lead not found" });
     }
+    if (!canAccessAssigned(req.user, lead)) return res.status(403).json({ success: false, message: "Access denied" });
 
     res.json({ success: true, data: lead });
   } catch (error) {
@@ -91,6 +95,14 @@ export const createLead = async (req, res) => {
       created: req.body.created || new Date().toISOString().split("T")[0],
       date: req.body.date || new Date().toISOString().split("T")[0],
     };
+    if (isExecutive(req.user)) {
+      leadData.assigned = req.user.name;
+      leadData.team = req.user.team;
+    } else if (isLeader(req.user)) {
+      if (leadData.team && leadData.team !== req.user.team) return res.status(403).json({ success: false, message: "Access denied" });
+      if (!(await User.exists({ name: leadData.assigned, team: req.user.team, status: "Active" }))) return res.status(403).json({ success: false, message: "Assignee must be on your team" });
+      leadData.team = req.user.team;
+    }
 
     // If initial activity is not provided, add default
     if (!leadData.activities || leadData.activities.length === 0) {
@@ -158,8 +170,12 @@ export const updateLead = async (req, res) => {
     if (!oldLead) {
       return res.status(404).json({ success: false, message: "Lead not found" });
     }
+    if (!canAccessAssigned(req.user, oldLead)) return res.status(403).json({ success: false, message: "Access denied" });
 
     const updates = { ...req.body };
+    if (isExecutive(req.user) && (updates.assigned !== undefined && updates.assigned !== req.user.name || updates.team !== undefined && updates.team !== req.user.team)) return res.status(403).json({ success: false, message: "Access denied" });
+    if (isLeader(req.user) && updates.team !== undefined && updates.team !== req.user.team) return res.status(403).json({ success: false, message: "Access denied" });
+    if (isLeader(req.user) && updates.assigned && !(await User.exists({ name: updates.assigned, team: req.user.team, status: "Active" }))) return res.status(403).json({ success: false, message: "Assignee must be on your team" });
 
     // Record activity if status changed
     if (updates.status && updates.status !== oldLead.status) {
@@ -210,14 +226,15 @@ export const updateLead = async (req, res) => {
 // @route   DELETE /api/leads/:id
 export const deleteLead = async (req, res) => {
   try {
+    if (isExecutive(req.user)) return res.status(403).json({ success: false, message: "Access denied" });
     const { id } = req.params;
     const query = isNaN(id) ? { _id: id } : { customId: Number(id) };
+    applyAssignmentScope(req.user, query);
 
     const lead = await Lead.findOneAndDelete(query);
     if (!lead) {
       return res.status(404).json({ success: false, message: "Lead not found" });
     }
-
     // Also remove associated follow-ups
     await Followup.deleteMany({ leadId: lead.customId });
 
@@ -240,6 +257,7 @@ export const addLeadNote = async (req, res) => {
     if (!lead) {
       return res.status(404).json({ success: false, message: "Lead not found" });
     }
+    if (!canAccessAssigned(req.user, lead)) return res.status(403).json({ success: false, message: "Access denied" });
 
     lead.notes.unshift({ text, author, createdAt: new Date() });
     lead.activities.unshift({
@@ -266,13 +284,16 @@ export const addLeadNote = async (req, res) => {
 // @route   POST /api/leads/batch-assign
 export const batchAssignLeads = async (req, res) => {
   try {
+    if (isExecutive(req.user)) return res.status(403).json({ success: false, message: "Access denied" });
     const { leadIds, assigned, team } = req.body;
+    if (isLeader(req.user) && team !== req.user.team) return res.status(403).json({ success: false, message: "Access denied" });
+    if (isLeader(req.user) && !(await User.exists({ name: assigned, team: req.user.team, status: "Active" }))) return res.status(403).json({ success: false, message: "Assignee must be on your team" });
     if (!leadIds || !leadIds.length) {
       return res.status(400).json({ success: false, message: "No lead IDs provided" });
     }
 
     await Lead.updateMany(
-      { customId: { $in: leadIds } },
+      applyAssignmentScope(req.user, { customId: { $in: leadIds } }),
       { $set: { assigned, team } }
     );
 

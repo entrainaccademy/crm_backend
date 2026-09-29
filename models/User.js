@@ -13,7 +13,7 @@ const userSchema = new mongoose.Schema(
       trim: true,
       lowercase: true,
     },
-    password: { type: String, default: "crm123" },
+    password: { type: String, required: true },
     phone: { type: String, trim: true },
     role: {
       type: String,

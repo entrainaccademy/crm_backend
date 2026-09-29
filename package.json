@@ -8,6 +8,7 @@
     "start": "node server.js",
     "dev": "node --watch server.js",
     "seed": "node seeds/seed.js",
+    "bootstrap-admin": "node seeds/bootstrap-admin.js",
     "clean": "node seeds/clean.js",
     "db:clean": "node seeds/clean.js"
   },

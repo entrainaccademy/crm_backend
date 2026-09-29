@@ -9,6 +9,7 @@ export const getUsers = async (req, res) => {
 
     if (role && role !== "All") query.role = role;
     if (team && team !== "All") query.team = team;
+    if (req.user.role === "Team Leader") query.team = req.user.team;
     if (search) {
       query.$or = [
         { name: { $regex: search, $options: "i" } },
@@ -17,7 +18,10 @@ export const getUsers = async (req, res) => {
       ];
     }
 
-    const users = await User.find(query).select("-password").sort("name");
+    const fields = req.user.role === "Data Analytics Manager"
+      ? "name short team target sales conversions role status"
+      : "-password";
+    const users = await User.find(query).select(fields).sort("name");
 
     res.json({
       success: true,
@@ -33,7 +37,7 @@ export const getUsers = async (req, res) => {
 // @route   GET /api/users/leaderboard
 export const getLeaderboard = async (req, res) => {
   try {
-    const users = await User.find({ status: "Active" }).select("-password");
+    const users = await User.find({ status: "Active" }).select("name short team target sales conversions role status");
 
     const ranked = users.sort((a, b) => {
       const aPct = a.target ? a.sales / a.target : 0;
@@ -55,6 +59,9 @@ export const getLeaderboard = async (req, res) => {
 export const createUser = async (req, res) => {
   try {
     const { email, name, role, team, leader, target, phone, password } = req.body;
+    if (!name || !email || !password || password.length < 8) {
+      return res.status(400).json({ success: false, message: "Name, email and a password of at least 8 characters are required" });
+    }
 
     const userExists = await User.findOne({ email });
     if (userExists) {
@@ -74,7 +81,7 @@ export const createUser = async (req, res) => {
       team: team || "Team Alpha",
       leader: leader || "",
       target: Number(target) || 500000,
-      password: password || "crm123",
+      password,
     });
 
     const userObj = user.toObject();
@@ -93,19 +100,21 @@ export const updateUser = async (req, res) => {
     const { id } = req.params;
     const query = isNaN(id) ? { _id: id } : { customId: Number(id) };
 
-    const updates = { ...req.body };
-    delete updates.password; // Do not update password here
-
-    const user = await User.findOneAndUpdate(query, updates, {
-      new: true,
-      runValidators: true,
-    }).select("-password");
+    const user = await User.findOne(query);
 
     if (!user) {
       return res.status(404).json({ success: false, message: "User not found" });
     }
 
-    res.json({ success: true, data: user });
+    const allowed = ["name", "email", "phone", "role", "team", "leader", "target", "status"];
+    for (const key of allowed) if (req.body[key] !== undefined) user[key] = req.body[key];
+    if (req.body.password) {
+      if (req.body.password.length < 8) return res.status(400).json({ success: false, message: "Password must be at least 8 characters" });
+      user.password = req.body.password;
+    }
+    await user.save();
+
+    res.json({ success: true, data: user.toJSON({ transform: (_, value) => { delete value.password; return value; } }) });
   } catch (error) {
     res.status(400).json({ success: false, message: error.message });
   }

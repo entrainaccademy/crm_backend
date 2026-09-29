@@ -185,6 +185,9 @@ const names = [
 
 const seedDB = async () => {
   try {
+    if (!process.env.SEED_USER_PASSWORD || process.env.SEED_USER_PASSWORD.length < 12) {
+      throw new Error("Set SEED_USER_PASSWORD to a password of at least 12 characters before seeding");
+    }
     await connectDB();
     console.log(" Seeding MongoDB Atlas...");
 
@@ -205,7 +208,7 @@ const seedDB = async () => {
     // Seed Users
     const createdUsers = [];
     for (const u of seedUsers) {
-      const user = await User.create(u);
+      const user = await User.create({ ...u, password: process.env.SEED_USER_PASSWORD });
       createdUsers.push(user);
     }
     console.log(" Users seeded");

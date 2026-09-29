@@ -1,4 +1,5 @@
 import express from "express";
+import { authorizeRoles } from "../middleware/authMiddleware.js";
 import {
   getTasks,
   createTask,
@@ -8,7 +9,7 @@ import {
 
 const router = express.Router();
 
-router.route("/").get(getTasks).post(createTask);
-router.route("/:id").put(updateTask).delete(deleteTask);
+router.route("/").get(authorizeRoles("Super Admin", "Manager", "HR", "Team Leader"), getTasks).post(authorizeRoles("Super Admin", "Manager", "HR", "Team Leader"), createTask);
+router.route("/:id").put(authorizeRoles("Super Admin", "Manager", "HR", "Team Leader"), updateTask).delete(authorizeRoles("Super Admin", "Manager", "HR", "Team Leader"), deleteTask);
 
 export default router;

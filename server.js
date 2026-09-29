@@ -18,14 +18,20 @@ import dashboardRoutes from "./routes/dashboardRoutes.js";
 
 // Middleware
 import { notFound, errorHandler } from "./middleware/errorHandler.js";
+import { protect } from "./middleware/authMiddleware.js";
 
 // Connect to MongoDB Atlas
+if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32) {
+  throw new Error("JWT_SECRET must be set to at least 32 characters");
+}
 connectDB();
 
 const app = express();
 
 // Middleware
-app.use(cors({ origin: "*" }));
+const allowedOrigins = (process.env.CLIENT_URL || "http://localhost:3000,http://localhost:3001")
+  .split(",").map((origin) => origin.trim());
+app.use(cors({ origin: (origin, callback) => callback(null, !origin || allowedOrigins.includes(origin)) }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -44,13 +50,13 @@ app.get("/api/health", (req, res) => {
 
 // API Routes
 app.use("/api/auth", authRoutes);
-app.use("/api/leads", leadRoutes);
-app.use("/api/followups", followupRoutes);
-app.use("/api/calls", callRoutes);
-app.use("/api/users", userRoutes);
-app.use("/api/tasks", taskRoutes);
-app.use("/api/courses", courseRoutes);
-app.use("/api/dashboard", dashboardRoutes);
+app.use("/api/leads", protect, leadRoutes);
+app.use("/api/followups", protect, followupRoutes);
+app.use("/api/calls", protect, callRoutes);
+app.use("/api/users", protect, userRoutes);
+app.use("/api/tasks", protect, taskRoutes);
+app.use("/api/courses", protect, courseRoutes);
+app.use("/api/dashboard", protect, dashboardRoutes);
 
 // Error Handling
 app.use(notFound);
