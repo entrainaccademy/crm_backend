@@ -7,7 +7,9 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node --watch server.js",
-    "seed": "node seeds/seed.js"
+    "seed": "node seeds/seed.js",
+    "clean": "node seeds/clean.js",
+    "db:clean": "node seeds/clean.js"
   },
   "keywords": ["crm", "express", "mongodb", "mongoose", "rest-api"],
   "author": "ENTRAIN",
