@@ -133,12 +133,12 @@ const sources = [
 ];
 
 const statuses = [
-  "New",
+  // "New",
   "Contacted",
   "Follow-up",
-  "Interested",
-  "Quotation",
-  "Won",
+  // "Interested",
+  // "Quotation",
+  // "Won",
   "Lost",
 ];
 
