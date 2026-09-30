@@ -10,10 +10,10 @@ const followupSchema = new mongoose.Schema(
     email: { type: String, trim: true },
     location: { type: String, trim: true },
     service: { type: String, trim: true },
-    source: { type: String, default: "Website" },
+    source: { type: String, default: "Facebook" },
     assigned: { type: String, default: "Unassigned" },
     status: { type: String, default: "Follow-up" },
-    priority: { type: String, default: "Medium" },
+    priority: { type: String, default: "Warm" },
     purpose: {
       type: String,
       default: "Course counselling",

@@ -122,25 +122,24 @@ const seedUsers = [
 ];
 
 const sources = [
-  "Meta Ads",
-  "Instagram",
   "Facebook",
-  "Website",
   "WhatsApp",
-  "Referral",
-  "Walk-in",
+  "Instagram",
+  "Direct",
   "Other",
+  "Referral",
 ];
 
 const statuses = [
-  // "New",
   "Contacted",
   "Follow-up",
-  // "Interested",
-  // "Quotation",
-  // "Won",
+  "Qualified",
+  "Converted",
+  "Not Qualified",
   "Lost",
 ];
+
+const priorities = ["Cold", "Warm", "Hot"];
 
 const names = [
   "Aditya Sharma",
@@ -196,14 +195,22 @@ const seedDB = async () => {
     console.log("✅ Users seeded");
 
     // Seed Leads
+    const now = new Date();
+    const curYear = now.getFullYear();
+    const curMonth = String(now.getMonth() + 1).padStart(2, "0");
+    const todayNum = now.getDate();
+
     const createdLeads = [];
     for (let i = 0; i < names.length; i++) {
       const courseName = seedCourses[i % seedCourses.length].name;
       const courseFee = seedCourses[i % seedCourses.length].fee;
       const assignedExec = seedUsers[i % 8];
       const status = statuses[i % statuses.length];
+      const priority = priorities[i % priorities.length];
       const saleAmount = courseFee;
-      const advanceAmount = status === "Won" ? Math.round((saleAmount * 0.25) / 1000) * 1000 : 0;
+      const advanceAmount = (status === "Converted" || status === "Won") ? Math.round((saleAmount * 0.25) / 1000) * 1000 : 0;
+      const createdDay = Math.max(1, Math.min(28, (todayNum - 10 + (i % 12))));
+      const nextFollowupDay = Math.min(28, createdDay + 2 + (i % 5));
 
       const lead = await Lead.create({
         customId: i + 1,
@@ -216,17 +223,17 @@ const seedDB = async () => {
         source: sources[i % sources.length],
         assigned: assignedExec.name,
         status,
-        priority: ["High", "Medium", "Low"][i % 3],
-        created: `2026-09-${String(10 + (i % 18)).padStart(2, "0")}`,
-        date: `2026-09-${String(27 + (i % 4)).padStart(2, "0")}`,
+        priority,
+        created: `${curYear}-${curMonth}-${String(createdDay).padStart(2, "0")}`,
+        date: `${curYear}-${curMonth}-${String(nextFollowupDay).padStart(2, "0")}`,
         time: ["10:30", "11:00", "14:30", "16:00"][i % 4],
         saleAmount,
         advanceAmount,
         activities: [
-          { text: `Lead created from ${sources[i % sources.length]}`, time: "24 Sep 2026 · 10:00 AM" },
-          { text: `Assigned to ${assignedExec.name}`, time: "24 Sep 2026 · 10:15 AM" },
-          { text: "Introductory call completed", time: "25 Sep 2026 · 11:30 AM" },
-          { text: "Follow-up scheduled", time: "26 Sep 2026 · 02:00 PM" },
+          { text: `Lead created from ${sources[i % sources.length]}`, time: "Yesterday · 10:00 AM" },
+          { text: `Assigned to ${assignedExec.name}`, time: "Yesterday · 10:15 AM" },
+          { text: "Introductory call completed", time: "Today · 11:30 AM" },
+          { text: "Follow-up scheduled", time: "Today · 02:00 PM" },
         ],
       });
       createdLeads.push(lead);
@@ -274,7 +281,7 @@ const seedDB = async () => {
         direction: i % 3 ? "Outgoing" : "Incoming",
         duration: i % 4 ? "05:14" : "00:00",
         callStatus: i % 4 ? "Answered" : "Missed",
-        callDate: "28 Sep 2026",
+        callDate: "Today",
         callTime: `${10 + (i % 8)}:32 AM`,
         service: l.service,
         assigned: l.assigned,
