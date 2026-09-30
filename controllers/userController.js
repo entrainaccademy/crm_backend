@@ -1,5 +1,7 @@
 import User from "../models/User.js";
 
+const accountRoles = ["Super Admin", "Data Analytics Manager", "Team Lead", "Sales Executive"];
+
 // @desc    Get all users
 // @route   GET /api/users
 export const getUsers = async (req, res) => {
@@ -8,7 +10,7 @@ export const getUsers = async (req, res) => {
     const query = {};
 
     if (role && role !== "All") query.role = role;
-    if (req.user.role === "Team Lead") query.role = "Sales Executive";
+    if (req.user.role === "Team Lead") query.role = { $in: ["Sales Executive", "Team Lead"] };
     if (search) {
       query.$or = [
         { name: { $regex: search, $options: "i" } },
@@ -17,7 +19,7 @@ export const getUsers = async (req, res) => {
       ];
     }
 
-    const fields = ["Data Analytics Manager", "Team Lead"].includes(req.user.role)
+    const fields = req.user.role === "Team Lead"
       ? "name short target sales conversions role status"
       : "-password";
     const users = await User.find(query).select(fields).sort("name");
@@ -36,7 +38,7 @@ export const getUsers = async (req, res) => {
 // @route   GET /api/users/leaderboard
 export const getLeaderboard = async (req, res) => {
   try {
-    const users = await User.find({ status: "Active", role: "Sales Executive" }).select("name short target sales conversions role status");
+    const users = await User.find({ status: "Active", role: { $in: ["Team Lead", "Sales Executive"] } }).select("name short target sales conversions role status");
 
     const ranked = users.sort((a, b) => {
       const aPct = a.target ? a.sales / a.target : 0;
@@ -58,6 +60,9 @@ export const getLeaderboard = async (req, res) => {
 export const createUser = async (req, res) => {
   try {
     const { email, name, role, target, phone, password } = req.body;
+    if (role && !accountRoles.includes(role)) {
+      return res.status(400).json({ success: false, message: "Choose one of the four supported account roles" });
+    }
     if (!name || !email || !password || password.length < 8) {
       return res.status(400).json({ success: false, message: "Name, email and a password of at least 8 characters are required" });
     }
@@ -107,6 +112,9 @@ export const updateUser = async (req, res) => {
 
     if (!user) {
       return res.status(404).json({ success: false, message: "User not found" });
+    }
+    if (req.body.role && !accountRoles.includes(req.body.role) && req.body.role !== user.role) {
+      return res.status(400).json({ success: false, message: "Choose one of the four supported account roles" });
     }
     if (req.body.role === "Team Lead" && user.role !== "Team Lead" && await User.exists({ role: "Team Lead" })) {
       return res.status(409).json({ success: false, message: "Only one Team Lead account is allowed" });

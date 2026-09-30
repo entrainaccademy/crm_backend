@@ -1,6 +1,6 @@
 import Followup from "../models/Followup.js";
 import Lead from "../models/Lead.js";
-import { applyAssignmentScope, canAccessAssigned, isExecutive } from "../middleware/scope.js";
+import { applyAssignmentScope, canWorkAssigned, isSeller } from "../middleware/scope.js";
 
 // @desc    Get all followups with filtering
 // @route   GET /api/followups
@@ -52,7 +52,7 @@ export const createFollowup = async (req, res) => {
   try {
     const data = { ...req.body };
     const relatedLead = await Lead.findOne({ customId: Number(data.leadId) });
-    if (!relatedLead || !canAccessAssigned(req.user, relatedLead)) return res.status(403).json({ success: false, message: "Lead access denied" });
+    if (!relatedLead || !canWorkAssigned(req.user, relatedLead)) return res.status(403).json({ success: false, message: "Lead access denied" });
     data.assigned = relatedLead.assigned;
     const followup = await Followup.create(data);
     res.status(201).json({ success: true, data: followup });
@@ -68,9 +68,9 @@ export const updateFollowup = async (req, res) => {
     const { id } = req.params;
     const query = isNaN(id) ? { _id: id } : { leadId: Number(id) };
 
-    applyAssignmentScope(req.user, query);
+    if (isSeller(req.user)) query.assigned = req.user.name;
     const updates = { ...req.body };
-    if (isExecutive(req.user) && updates.assigned !== undefined && updates.assigned !== req.user.name) return res.status(403).json({ success: false, message: "Access denied" });
+    if (isSeller(req.user) && updates.assigned !== undefined && updates.assigned !== req.user.name) return res.status(403).json({ success: false, message: "Access denied" });
     if (updates.leadId !== undefined) delete updates.leadId;
     const followup = await Followup.findOneAndUpdate(query, updates, {
       new: true,
@@ -94,7 +94,7 @@ export const toggleFollowupComplete = async (req, res) => {
     const { id } = req.params;
     const query = isNaN(id) ? { _id: id } : { leadId: Number(id) };
 
-    applyAssignmentScope(req.user, query);
+    if (isSeller(req.user)) query.assigned = req.user.name;
     const followup = await Followup.findOne(query);
     if (!followup) {
       return res.status(404).json({ success: false, message: "Followup not found" });
@@ -117,7 +117,7 @@ export const deleteFollowup = async (req, res) => {
     const { id } = req.params;
     const query = isNaN(id) ? { _id: id } : { leadId: Number(id) };
 
-    applyAssignmentScope(req.user, query);
+    if (isSeller(req.user)) query.assigned = req.user.name;
     const followup = await Followup.findOneAndDelete(query);
     if (!followup) {
       return res.status(404).json({ success: false, message: "Followup not found" });

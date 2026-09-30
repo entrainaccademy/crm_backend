@@ -1,5 +1,5 @@
 import Call from "../models/Call.js";
-import { isExecutive } from "../middleware/scope.js";
+import { isExecutive, isSeller } from "../middleware/scope.js";
 
 // @desc    Get all call logs
 // @route   GET /api/calls
@@ -38,7 +38,7 @@ export const getCalls = async (req, res) => {
 export const logCall = async (req, res) => {
   try {
     const data = { ...req.body };
-    if (isExecutive(req.user)) data.assigned = req.user.name;
+    if (isSeller(req.user)) data.assigned = req.user.name;
     const call = await Call.create(data);
     res.status(201).json({ success: true, data: call });
   } catch (error) {

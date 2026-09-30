@@ -1,6 +1,13 @@
 import Lead from "../models/Lead.js";
 import Followup from "../models/Followup.js";
-import { applyAssignmentScope, canAccessAssigned, isExecutive } from "../middleware/scope.js";
+import User from "../models/User.js";
+import { applyAssignmentScope, canAccessAssigned, canWorkAssigned, isExecutive, isSeller } from "../middleware/scope.js";
+
+const validAssignee = (name) => User.exists({
+  name,
+  status: "Active",
+  role: { $in: ["Team Lead", "Sales Executive"] },
+});
 
 // @desc    Get all leads with filters & search
 // @route   GET /api/leads
@@ -95,6 +102,9 @@ export const createLead = async (req, res) => {
     if (isExecutive(req.user)) {
       leadData.assigned = req.user.name;
     }
+    if (!leadData.assigned || !await validAssignee(leadData.assigned)) {
+      return res.status(400).json({ success: false, message: "Choose an active Team Lead or Sales Executive" });
+    }
 
     // If initial activity is not provided, add default
     if (!leadData.activities || leadData.activities.length === 0) {
@@ -162,9 +172,16 @@ export const updateLead = async (req, res) => {
       return res.status(404).json({ success: false, message: "Lead not found" });
     }
     if (!canAccessAssigned(req.user, oldLead)) return res.status(403).json({ success: false, message: "Access denied" });
+    if (!canWorkAssigned(req.user, oldLead)) return res.status(403).json({ success: false, message: "Only your assigned leads can be changed" });
 
-    const updates = { ...req.body };
-    if (isExecutive(req.user) && updates.assigned !== undefined && updates.assigned !== req.user.name) return res.status(403).json({ success: false, message: "Access denied" });
+    const updates = req.user.role === "Data Analytics Manager"
+      ? { assigned: req.body.assigned }
+      : { ...req.body };
+    if (req.user.role === "Data Analytics Manager" && !updates.assigned) {
+      return res.status(400).json({ success: false, message: "Choose a team member to assign" });
+    }
+    if (isSeller(req.user) && updates.assigned !== undefined && updates.assigned !== req.user.name) return res.status(403).json({ success: false, message: "Access denied" });
+    if (updates.assigned && !await validAssignee(updates.assigned)) return res.status(400).json({ success: false, message: "Choose an active Team Lead or Sales Executive" });
 
     // Record activity if status changed
     if (updates.status && updates.status !== oldLead.status) {
@@ -204,6 +221,9 @@ export const updateLead = async (req, res) => {
       new: true,
       runValidators: true,
     });
+    if (updates.assigned && updates.assigned !== oldLead.assigned) {
+      await Followup.updateMany({ leadId: oldLead.customId }, { $set: { assigned: updates.assigned } });
+    }
 
     res.json({ success: true, data: lead });
   } catch (error) {
@@ -247,6 +267,7 @@ export const addLeadNote = async (req, res) => {
       return res.status(404).json({ success: false, message: "Lead not found" });
     }
     if (!canAccessAssigned(req.user, lead)) return res.status(403).json({ success: false, message: "Access denied" });
+    if (!canWorkAssigned(req.user, lead)) return res.status(403).json({ success: false, message: "Only your assigned leads can be changed" });
 
     lead.notes.unshift({ text, author, createdAt: new Date() });
     lead.activities.unshift({
@@ -278,11 +299,15 @@ export const batchAssignLeads = async (req, res) => {
     if (!leadIds || !leadIds.length) {
       return res.status(400).json({ success: false, message: "No lead IDs provided" });
     }
+    if (!await validAssignee(assigned)) {
+      return res.status(400).json({ success: false, message: "Choose an active Team Lead or Sales Executive" });
+    }
 
     await Lead.updateMany(
       applyAssignmentScope(req.user, { customId: { $in: leadIds } }),
       { $set: { assigned } }
     );
+    await Followup.updateMany({ leadId: { $in: leadIds } }, { $set: { assigned } });
 
     res.json({ success: true, message: `Successfully assigned ${leadIds.length} leads to ${assigned}` });
   } catch (error) {
