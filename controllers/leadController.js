@@ -174,14 +174,14 @@ export const updateLead = async (req, res) => {
     if (!canAccessAssigned(req.user, oldLead)) return res.status(403).json({ success: false, message: "Access denied" });
     if (!canWorkAssigned(req.user, oldLead)) return res.status(403).json({ success: false, message: "Only your assigned leads can be changed" });
 
-    const updates = req.user.role === "Data Analytics Manager"
-      ? { assigned: req.body.assigned }
-      : { ...req.body };
-    if (req.user.role === "Data Analytics Manager" && !updates.assigned) {
-      return res.status(400).json({ success: false, message: "Choose a team member to assign" });
-    }
+    const updates = { ...req.body };
+    delete updates._id;
+    delete updates.id;
+    delete updates.customId;
+    delete updates.createdAt;
+    delete updates.updatedAt;
     if (isSeller(req.user) && updates.assigned !== undefined && updates.assigned !== req.user.name) return res.status(403).json({ success: false, message: "Access denied" });
-    if (updates.assigned && !await validAssignee(updates.assigned)) return res.status(400).json({ success: false, message: "Choose an active Team Lead or Sales Executive" });
+    if (updates.assigned && updates.assigned !== oldLead.assigned && !await validAssignee(updates.assigned)) return res.status(400).json({ success: false, message: "Choose an active Team Lead or Sales Executive" });
 
     // Record activity if status changed
     if (updates.status && updates.status !== oldLead.status) {
