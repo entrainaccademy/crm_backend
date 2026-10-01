@@ -10,8 +10,8 @@ import {
 
 const router = express.Router();
 
-router.route("/").get(authorizeRoles("Super Admin", "Manager", "HR", "Data Analytics Manager", "Team Lead"), getUsers).post(authorizeRoles("Super Admin"), createUser);
+router.route("/").get(authorizeRoles("Super Admin", "Manager", "HR", "Data Analytics Manager", "Team Lead"), getUsers).post(authorizeRoles("Super Admin", "Data Analytics Manager"), createUser);
 router.get("/leaderboard", getLeaderboard);
-router.route("/:id").put(authorizeRoles("Super Admin"), updateUser).delete(authorizeRoles("Super Admin"), deleteUser);
+router.route("/:id").put(authorizeRoles("Super Admin", "Data Analytics Manager"), updateUser).delete(authorizeRoles("Super Admin", "Data Analytics Manager"), deleteUser);
 
 export default router;

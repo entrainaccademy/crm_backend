@@ -14,9 +14,9 @@ const router = express.Router();
 router.use(authorizeRoles("Super Admin", "Manager", "Data Analytics Manager", "Team Lead", "Sales Executive"));
 
 const canWork = authorizeRoles("Manager", "Data Analytics Manager", "Team Lead", "Sales Executive");
-router.route("/").get(getLeads).post(authorizeRoles("Data Analytics Manager", "Sales Executive"), createLead);
+router.route("/").get(getLeads).post(authorizeRoles("Data Analytics Manager", "Team Lead", "Sales Executive"), createLead);
 router.post("/batch-assign", authorizeRoles("Manager", "Data Analytics Manager"), batchAssignLeads);
 router.route("/:id").get(getLeadById).put(canWork, updateLead).patch(canWork, updateLead).delete(authorizeRoles("Manager", "Data Analytics Manager"), deleteLead);
-router.route("/:id/notes").post(authorizeRoles("Manager", "Team Lead", "Sales Executive"), addLeadNote);
+router.route("/:id/notes").post(authorizeRoles("Manager", "Data Analytics Manager", "Team Lead", "Sales Executive"), addLeadNote);
 
 export default router;

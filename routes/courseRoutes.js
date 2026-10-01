@@ -8,7 +8,7 @@ import {
 
 const router = express.Router();
 
-router.route("/").get(getCourses).post(authorizeRoles("Super Admin"), createCourse);
-router.route("/:id").put(authorizeRoles("Super Admin"), updateCourse);
+router.route("/").get(getCourses).post(authorizeRoles("Super Admin", "Data Analytics Manager"), createCourse);
+router.route("/:id").put(authorizeRoles("Super Admin", "Data Analytics Manager"), updateCourse);
 
 export default router;

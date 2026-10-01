@@ -99,7 +99,7 @@ export const createLead = async (req, res) => {
       created: req.body.created || new Date().toISOString().split("T")[0],
       date: req.body.date || new Date().toISOString().split("T")[0],
     };
-    if (isExecutive(req.user)) {
+    if (isSeller(req.user)) {
       leadData.assigned = req.user.name;
     }
     if (!leadData.assigned || !await validAssignee(leadData.assigned)) {
