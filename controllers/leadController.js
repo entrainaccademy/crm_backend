@@ -1,6 +1,7 @@
 import Lead from "../models/Lead.js";
 import Followup from "../models/Followup.js";
 import User from "../models/User.js";
+import { ensureLeadFollowup } from "../utils/followupSchedule.js";
 import { applyAssignmentScope, canAccessAssigned, canWorkAssigned, isExecutive, isSeller } from "../middleware/scope.js";
 
 const validAssignee = (name) => User.exists({
@@ -136,23 +137,7 @@ export const createLead = async (req, res) => {
 
     const lead = await Lead.create(leadData);
 
-    // If status is Follow-up, optionally create a Followup record
-    if (lead.status === "Follow-up") {
-      await Followup.create({
-        leadId: lead.customId,
-        leadRef: lead._id,
-        name: lead.name,
-        phone: lead.phone,
-        whatsapp: lead.whatsapp,
-        email: lead.email,
-        service: lead.service,
-        assigned: lead.assigned,
-        purpose: "Course counselling",
-        type: "Call",
-        date: lead.date,
-        time: lead.time || "11:00",
-      });
-    }
+    await ensureLeadFollowup(lead);
 
     res.status(201).json({ success: true, data: lead });
   } catch (error) {
@@ -221,9 +206,21 @@ export const updateLead = async (req, res) => {
       new: true,
       runValidators: true,
     });
-    if (updates.assigned && updates.assigned !== oldLead.assigned) {
-      await Followup.updateMany({ leadId: oldLead.customId }, { $set: { assigned: updates.assigned } });
-    }
+    await Followup.updateMany(
+      { leadId: oldLead.customId },
+      { $set: {
+        name: lead.name,
+        phone: lead.phone,
+        whatsapp: lead.whatsapp,
+        email: lead.email,
+        location: lead.location,
+        service: lead.service,
+        source: lead.source,
+        assigned: lead.assigned,
+        priority: lead.priority,
+      } },
+    );
+    await ensureLeadFollowup(lead, { date: oldLead.date, time: oldLead.time });
 
     res.json({ success: true, data: lead });
   } catch (error) {

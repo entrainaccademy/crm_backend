@@ -20,7 +20,7 @@ const followupSchema = new mongoose.Schema(
     },
     type: {
       type: String,
-      enum: ["Call", "Meeting", "WhatsApp", "Email", "Demo"],
+      enum: ["Call", "Meeting", "WhatsApp", "Email", "Demo", "Other"],
       default: "Call",
     },
     date: { type: String, default: () => new Date().toISOString().split("T")[0] },
@@ -37,7 +37,7 @@ const followupSchema = new mongoose.Schema(
 );
 
 followupSchema.virtual("id").get(function () {
-  return this.leadId || this._id;
+  return this._id.toString();
 });
 
 const Followup = mongoose.model("Followup", followupSchema);

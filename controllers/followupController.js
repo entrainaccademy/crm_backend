@@ -1,6 +1,7 @@
 import Followup from "../models/Followup.js";
 import Lead from "../models/Lead.js";
 import { applyAssignmentScope, canWorkAssigned, isSeller } from "../middleware/scope.js";
+import { refreshLeadNextFollowup } from "../utils/followupSchedule.js";
 
 // @desc    Get all followups with filtering
 // @route   GET /api/followups
@@ -55,6 +56,7 @@ export const createFollowup = async (req, res) => {
     if (!relatedLead || !canWorkAssigned(req.user, relatedLead)) return res.status(403).json({ success: false, message: "Lead access denied" });
     data.assigned = relatedLead.assigned;
     const followup = await Followup.create(data);
+    await refreshLeadNextFollowup(followup.leadId);
     res.status(201).json({ success: true, data: followup });
   } catch (error) {
     res.status(400).json({ success: false, message: error.message });
@@ -66,7 +68,7 @@ export const createFollowup = async (req, res) => {
 export const updateFollowup = async (req, res) => {
   try {
     const { id } = req.params;
-    const query = isNaN(id) ? { _id: id } : { leadId: Number(id) };
+    const query = { _id: id };
 
     if (isSeller(req.user)) query.assigned = req.user.name;
     const updates = { ...req.body };
@@ -81,6 +83,8 @@ export const updateFollowup = async (req, res) => {
       return res.status(404).json({ success: false, message: "Followup not found" });
     }
 
+    await refreshLeadNextFollowup(followup.leadId);
+
     res.json({ success: true, data: followup });
   } catch (error) {
     res.status(400).json({ success: false, message: error.message });
@@ -92,7 +96,7 @@ export const updateFollowup = async (req, res) => {
 export const toggleFollowupComplete = async (req, res) => {
   try {
     const { id } = req.params;
-    const query = isNaN(id) ? { _id: id } : { leadId: Number(id) };
+    const query = { _id: id };
 
     if (isSeller(req.user)) query.assigned = req.user.name;
     const followup = await Followup.findOne(query);
@@ -103,6 +107,7 @@ export const toggleFollowupComplete = async (req, res) => {
     followup.completed = !followup.completed;
     followup.completedAt = followup.completed ? new Date() : null;
     await followup.save();
+    await refreshLeadNextFollowup(followup.leadId);
 
     res.json({ success: true, data: followup });
   } catch (error) {
@@ -115,13 +120,15 @@ export const toggleFollowupComplete = async (req, res) => {
 export const deleteFollowup = async (req, res) => {
   try {
     const { id } = req.params;
-    const query = isNaN(id) ? { _id: id } : { leadId: Number(id) };
+    const query = { _id: id };
 
     if (isSeller(req.user)) query.assigned = req.user.name;
     const followup = await Followup.findOneAndDelete(query);
     if (!followup) {
       return res.status(404).json({ success: false, message: "Followup not found" });
     }
+
+    await refreshLeadNextFollowup(followup.leadId);
 
     res.json({ success: true, message: "Followup removed", data: followup });
   } catch (error) {
