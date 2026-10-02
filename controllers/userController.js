@@ -1,4 +1,5 @@
 import User from "../models/User.js";
+import Lead from "../models/Lead.js";
 
 const accountRoles = ["Super Admin", "Data Analytics Manager", "Team Lead", "Sales Executive"];
 
@@ -38,13 +39,31 @@ export const getUsers = async (req, res) => {
 // @route   GET /api/users/leaderboard
 export const getLeaderboard = async (req, res) => {
   try {
-    const users = await User.find({ status: "Active", role: { $in: ["Team Lead", "Sales Executive"] } }).select("name short target sales conversions role status");
-
-    const ranked = users.sort((a, b) => {
-      const aPct = a.target ? a.sales / a.target : 0;
-      const bPct = b.target ? b.sales / b.target : 0;
-      return bPct - aPct || b.sales - a.sales;
-    });
+    const { startDate, endDate } = req.query;
+    const start = startDate ? new Date(`${startDate}T00:00:00.000Z`) : null;
+    const end = endDate ? new Date(`${endDate}T23:59:59.999Z`) : null;
+    if ((start && Number.isNaN(start.getTime())) || (end && Number.isNaN(end.getTime())) || (start && end && start > end)) {
+      return res.status(400).json({ success: false, message: "Choose a valid date range" });
+    }
+    const users = await User.find({
+      status: "Active",
+      role: { $in: ["Team Lead", "Sales Executive"] },
+      leaderboardVisible: { $ne: false },
+    }).select("name short target role status leaderboardVisible");
+    const totals = await Lead.aggregate([
+      { $match: { assigned: { $in: users.map((user) => user.name) }, status: { $in: ["Converted", "Won"] } } },
+      { $addFields: { conversionDate: { $ifNull: ["$convertedAt", "$updatedAt"] } } },
+      ...(start || end ? [{ $match: { conversionDate: { ...(start ? { $gte: start } : {}), ...(end ? { $lte: end } : {}) } } }] : []),
+      { $group: { _id: "$assigned", sales: { $sum: "$saleAmount" }, conversions: { $sum: 1 } } },
+    ]);
+    const byName = new Map(totals.map((entry) => [entry._id, entry]));
+    const ranked = users.map((user) => ({
+      ...user.toObject(),
+      sales: byName.get(user.name)?.sales || 0,
+      conversions: byName.get(user.name)?.conversions || 0,
+    })).sort((a, b) =>
+      b.sales / Math.max(1, b.target) - a.sales / Math.max(1, a.target) || b.sales - a.sales
+    );
 
     res.json({
       success: true,
@@ -120,7 +139,13 @@ export const updateUser = async (req, res) => {
       return res.status(409).json({ success: false, message: "Only one Team Lead account is allowed" });
     }
 
-    const allowed = ["name", "email", "phone", "role", "target", "status"];
+    if (req.body.target !== undefined && (!Number.isFinite(Number(req.body.target)) || Number(req.body.target) <= 0)) {
+      return res.status(400).json({ success: false, message: "Target must be greater than zero" });
+    }
+    if (req.body.leaderboardVisible !== undefined && typeof req.body.leaderboardVisible !== "boolean") {
+      return res.status(400).json({ success: false, message: "Leaderboard visibility must be true or false" });
+    }
+    const allowed = ["name", "email", "phone", "role", "target", "status", "leaderboardVisible"];
     for (const key of allowed) if (req.body[key] !== undefined) user[key] = req.body[key];
     if (req.body.password) {
       if (req.body.password.length < 8) return res.status(400).json({ success: false, message: "Password must be at least 8 characters" });

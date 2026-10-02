@@ -30,6 +30,7 @@ const userSchema = new mongoose.Schema(
     target: { type: Number, default: 500000 },
     sales: { type: Number, default: 0 },
     conversions: { type: Number, default: 0 },
+    leaderboardVisible: { type: Boolean, default: true },
     status: { type: String, enum: ["Active", "Inactive"], default: "Active" },
     avatar: { type: String, default: "" },
   },
