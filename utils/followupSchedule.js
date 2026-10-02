@@ -18,7 +18,18 @@ const detailsFromLead = (lead) => ({
 });
 
 export const ensureLeadFollowup = async (lead, previousSchedule) => {
-  if (!lead?.customId || !lead.date) return null;
+  if (!lead?.customId) return null;
+  if (!lead.date) {
+    if (previousSchedule?.date) {
+      await Followup.deleteOne({
+        leadId: lead.customId,
+        completed: false,
+        date: previousSchedule.date,
+        time: previousSchedule.time || "10:00",
+      });
+    }
+    return null;
+  }
 
   const details = detailsFromLead(lead);
   const matching = await Followup.findOne({

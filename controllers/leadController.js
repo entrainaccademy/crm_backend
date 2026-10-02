@@ -1,7 +1,7 @@
 import Lead from "../models/Lead.js";
 import Followup from "../models/Followup.js";
 import User from "../models/User.js";
-import { ensureLeadFollowup } from "../utils/followupSchedule.js";
+import { ensureLeadFollowup, refreshLeadNextFollowup } from "../utils/followupSchedule.js";
 import { applyAssignmentScope, canAccessAssigned, canWorkAssigned, isExecutive, isSeller } from "../middleware/scope.js";
 
 const validAssignee = (name) => User.exists({
@@ -98,10 +98,16 @@ export const createLead = async (req, res) => {
       ...req.body,
       customId: req.body.customId || nextCustomId,
       created: req.body.created || new Date().toISOString().split("T")[0],
-      date: req.body.date || new Date().toISOString().split("T")[0],
+      date: req.body.date ?? "",
     };
     if (isSeller(req.user)) {
       leadData.assigned = req.user.name;
+    }
+    if (req.user.role === "Data Analytics Manager") {
+      leadData.status = "";
+      leadData.priority = "";
+      leadData.date = "";
+      leadData.time = "";
     }
     if (!leadData.assigned || !await validAssignee(leadData.assigned)) {
       return res.status(400).json({ success: false, message: "Choose an active Team Lead or Sales Executive" });
@@ -178,7 +184,7 @@ export const updateLead = async (req, res) => {
         minute: "2-digit",
       });
       oldLead.activities.unshift({
-        text: `Status changed from ${oldLead.status} to ${updates.status}`,
+        text: `Status changed from ${oldLead.status || "No status"} to ${updates.status}`,
         time: nowStr,
         type: "status_change",
       });
@@ -202,7 +208,7 @@ export const updateLead = async (req, res) => {
       updates.activities = oldLead.activities;
     }
 
-    const lead = await Lead.findOneAndUpdate(query, updates, {
+    let lead = await Lead.findOneAndUpdate(query, updates, {
       new: true,
       runValidators: true,
     });
@@ -221,6 +227,10 @@ export const updateLead = async (req, res) => {
       } },
     );
     await ensureLeadFollowup(lead, { date: oldLead.date, time: oldLead.time });
+    if (oldLead.date && !lead.date) {
+      await refreshLeadNextFollowup(lead.customId);
+      lead = await Lead.findOne(query);
+    }
 
     res.json({ success: true, data: lead });
   } catch (error) {

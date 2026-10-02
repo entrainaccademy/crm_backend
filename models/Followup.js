@@ -13,7 +13,7 @@ const followupSchema = new mongoose.Schema(
     source: { type: String, default: "Facebook" },
     assigned: { type: String, default: "Unassigned" },
     status: { type: String, default: "Follow-up" },
-    priority: { type: String, default: "Warm" },
+    priority: { type: String, default: "Cool" },
     purpose: {
       type: String,
       default: "Course counselling",
