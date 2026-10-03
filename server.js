@@ -15,6 +15,7 @@ import userRoutes from "./routes/userRoutes.js";
 import taskRoutes from "./routes/taskRoutes.js";
 import courseRoutes from "./routes/courseRoutes.js";
 import dashboardRoutes from "./routes/dashboardRoutes.js";
+import notificationRoutes from "./routes/notificationRoutes.js";
 
 // Middleware
 import { notFound, errorHandler } from "./middleware/errorHandler.js";
@@ -57,6 +58,7 @@ app.use("/api/users", protect, userRoutes);
 app.use("/api/tasks", protect, taskRoutes);
 app.use("/api/courses", protect, courseRoutes);
 app.use("/api/dashboard", protect, dashboardRoutes);
+app.use("/api/notifications", protect, notificationRoutes);
 
 // Error Handling
 app.use(notFound);

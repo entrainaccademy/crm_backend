@@ -1,6 +1,7 @@
 import Lead from "../models/Lead.js";
 import Followup from "../models/Followup.js";
 import User from "../models/User.js";
+import { notifyAssigneeSafely } from "../utils/assignmentNotification.js";
 import { ensureLeadFollowup, refreshLeadNextFollowup } from "../utils/followupSchedule.js";
 import { applyAssignmentScope, canAccessAssigned, canWorkAssigned, isExecutive, isSeller } from "../middleware/scope.js";
 
@@ -145,6 +146,7 @@ export const createLead = async (req, res) => {
     const lead = await Lead.create(leadData);
 
     await ensureLeadFollowup(lead);
+    await notifyAssigneeSafely([lead], lead.assigned, req.user);
 
     res.status(201).json({ success: true, data: lead });
   } catch (error) {
@@ -239,6 +241,9 @@ export const updateLead = async (req, res) => {
       await refreshLeadNextFollowup(lead.customId);
       lead = await Lead.findOne(query);
     }
+    if (lead.assigned !== oldLead.assigned) {
+      await notifyAssigneeSafely([lead], lead.assigned, req.user);
+    }
 
     res.json({ success: true, data: lead });
   } catch (error) {
@@ -318,13 +323,17 @@ export const batchAssignLeads = async (req, res) => {
       return res.status(400).json({ success: false, message: "Choose an active Team Lead or Sales Executive" });
     }
 
+    const leadsToAssign = await Lead.find(
+      applyAssignmentScope(req.user, { customId: { $in: leadIds }, assigned: { $ne: assigned } }),
+    );
     await Lead.updateMany(
-      applyAssignmentScope(req.user, { customId: { $in: leadIds } }),
+      { _id: { $in: leadsToAssign.map((lead) => lead._id) } },
       { $set: { assigned } }
     );
-    await Followup.updateMany({ leadId: { $in: leadIds } }, { $set: { assigned } });
+    await Followup.updateMany({ leadId: { $in: leadsToAssign.map((lead) => lead.customId) } }, { $set: { assigned } });
+    await notifyAssigneeSafely(leadsToAssign, assigned, req.user);
 
-    res.json({ success: true, message: `Successfully assigned ${leadIds.length} leads to ${assigned}` });
+    res.json({ success: true, message: `Successfully assigned ${leadsToAssign.length} leads to ${assigned}` });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
