@@ -1,6 +1,7 @@
 import Lead from "../models/Lead.js";
 import Followup from "../models/Followup.js";
 import User from "../models/User.js";
+import Course from "../models/Course.js";
 import { notifyAssigneeSafely } from "../utils/assignmentNotification.js";
 import { ensureLeadFollowup, refreshLeadNextFollowup } from "../utils/followupSchedule.js";
 import { applyAssignmentScope, canAccessAssigned, canWorkAssigned, isExecutive, isSeller } from "../middleware/scope.js";
@@ -114,6 +115,9 @@ export const createLead = async (req, res) => {
     if (!leadData.assigned || !await validAssignee(leadData.assigned)) {
       return res.status(400).json({ success: false, message: "Choose an active Team Lead or Sales Executive" });
     }
+    if (!await Course.exists({ name: leadData.service, status: "Active" })) {
+      return res.status(400).json({ success: false, message: "Choose an active course" });
+    }
 
     // If initial activity is not provided, add default
     if (!leadData.activities || leadData.activities.length === 0) {
@@ -177,6 +181,9 @@ export const updateLead = async (req, res) => {
     delete updates.convertedAt;
     if (isSeller(req.user) && updates.assigned !== undefined && updates.assigned !== req.user.name) return res.status(403).json({ success: false, message: "Access denied" });
     if (updates.assigned && updates.assigned !== oldLead.assigned && !await validAssignee(updates.assigned)) return res.status(400).json({ success: false, message: "Choose an active Team Lead or Sales Executive" });
+    if (updates.service !== undefined && updates.service !== oldLead.service && !await Course.exists({ name: updates.service, status: "Active" })) {
+      return res.status(400).json({ success: false, message: "Choose an active course" });
+    }
 
     // Record activity if status changed
     if (updates.status && updates.status !== oldLead.status) {

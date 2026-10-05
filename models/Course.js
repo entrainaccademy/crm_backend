@@ -3,7 +3,7 @@ import mongoose from "mongoose";
 const courseSchema = new mongoose.Schema(
   {
     name: { type: String, required: true, unique: true, trim: true },
-    fee: { type: Number, required: true },
+    fee: { type: Number, required: true, min: 0 },
     duration: { type: String, default: "6 Months" },
     description: { type: String, default: "" },
     status: { type: String, enum: ["Active", "Inactive"], default: "Active" },
