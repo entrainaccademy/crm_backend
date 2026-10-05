@@ -30,9 +30,39 @@ connectDB();
 const app = express();
 
 // Middleware
-const allowedOrigins = (process.env.CLIENT_URL || "http://localhost:3000,http://localhost:3001")
-  .split(",").map((origin) => origin.trim());
-app.use(cors({ origin: (origin, callback) => callback(null, !origin || allowedOrigins.includes(origin)) }));
+const configuredOrigins = (process.env.CLIENT_URL || "http://localhost:3000,http://localhost:3001")
+  .split(",")
+  .map((origin) => origin.trim().replace(/\/+$/, ""))
+  .filter(Boolean);
+
+const isOriginAllowed = (origin) => {
+  if (!origin) return true;
+  const cleanOrigin = origin.replace(/\/+$/, "");
+  if (configuredOrigins.includes(cleanOrigin)) return true;
+  if (/\.vercel\.app$/.test(cleanOrigin)) return true;
+  if (process.env.NODE_ENV !== "production") {
+    if (/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(cleanOrigin)) {
+      return true;
+    }
+  }
+  return false;
+};
+
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      if (isOriginAllowed(origin)) {
+        callback(null, true);
+      } else {
+        callback(null, false);
+      }
+    },
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  })
+);
+app.options("*", cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
