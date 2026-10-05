@@ -16,7 +16,10 @@ export const login = async (req, res) => {
 
     const user = await User.findOne({ email });
 
-    if (user && user.status === "Active" && password && (await user.matchPassword(password))) {
+    if (user && user.status === "Active") {
+      if (!password || !(await user.matchPassword(password))) {
+        return res.status(401).json({ success: false, message: "Wrong password. Please try again." });
+      }
       if (!User.schema.path("role").enumValues.includes(user.role)) {
         return res.status(403).json({ success: false, message: "Account role is no longer supported. Contact your administrator." });
       }
