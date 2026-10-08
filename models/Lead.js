@@ -21,6 +21,7 @@ const activitySchema = new mongoose.Schema(
 const leadSchema = new mongoose.Schema(
   {
     customId: { type: Number, unique: true, sparse: true, index: true },
+    creationRequestId: { type: String, unique: true, sparse: true, index: true },
     name: { type: String, required: true, trim: true },
     phone: { type: String, trim: true },
     whatsapp: { type: String, trim: true },

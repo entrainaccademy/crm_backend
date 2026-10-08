@@ -92,7 +92,15 @@ export const getLeadById = async (req, res) => {
 // @desc    Create a new lead
 // @route   POST /api/leads
 export const createLead = async (req, res) => {
+  const creationRequestId = typeof req.body.creationRequestId === "string" ? req.body.creationRequestId.trim() : "";
   try {
+    if (creationRequestId) {
+      const existing = await Lead.findOne({ creationRequestId });
+      if (existing) {
+        if (!canAccessAssigned(req.user, existing)) return res.status(403).json({ success: false, message: "Access denied" });
+        return res.json({ success: true, data: existing });
+      }
+    }
     const highestLead = await Lead.findOne().sort("-customId");
     const nextCustomId = (highestLead?.customId || 0) + 1;
 
@@ -101,6 +109,7 @@ export const createLead = async (req, res) => {
       customId: req.body.customId || nextCustomId,
       created: req.body.created || new Date().toISOString().split("T")[0],
       date: req.body.date ?? "",
+      creationRequestId: creationRequestId || undefined,
     };
     if (isSeller(req.user)) {
       leadData.assigned = req.user.name;
@@ -154,6 +163,13 @@ export const createLead = async (req, res) => {
 
     res.status(201).json({ success: true, data: lead });
   } catch (error) {
+    if (error.code === 11000 && creationRequestId) {
+      const existing = await Lead.findOne({ creationRequestId });
+      if (existing) {
+        if (!canAccessAssigned(req.user, existing)) return res.status(403).json({ success: false, message: "Access denied" });
+        return res.json({ success: true, data: existing });
+      }
+    }
     res.status(400).json({ success: false, message: error.message });
   }
 };
@@ -176,6 +192,7 @@ export const updateLead = async (req, res) => {
     delete updates._id;
     delete updates.id;
     delete updates.customId;
+    delete updates.creationRequestId;
     delete updates.createdAt;
     delete updates.updatedAt;
     delete updates.convertedAt;
