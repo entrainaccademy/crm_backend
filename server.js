@@ -11,6 +11,7 @@ import authRoutes from "./routes/authRoutes.js";
 import leadRoutes from "./routes/leadRoutes.js";
 import followupRoutes from "./routes/followupRoutes.js";
 import callRoutes from "./routes/callRoutes.js";
+import telephonyRoutes from "./routes/telephonyRoutes.js";
 import userRoutes from "./routes/userRoutes.js";
 import taskRoutes from "./routes/taskRoutes.js";
 import courseRoutes from "./routes/courseRoutes.js";
@@ -81,6 +82,7 @@ app.get("/api/health", (req, res) => {
 
 // API Routes
 app.use("/api/auth", authRoutes);
+app.use("/api/telephony", telephonyRoutes);
 app.use("/api/leads", protect, leadRoutes);
 app.use("/api/followups", protect, followupRoutes);
 app.use("/api/calls", protect, callRoutes);

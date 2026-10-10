@@ -19,127 +19,28 @@ const seedCourses = [
   { name: "One Week Arabian Cuisine Course", fee: 45000, duration: "1 Week" },
 ];
 
-const seedUsers = [
-  {
-    customId: 1,
-    name: "Mohammed Ali",
-    short: "Mohammed",
-    email: "mohammed@entrain.in",
-    phone: "+91 98470 12001",
-    role: "Sales Executive",
-    target: 500000,
-    sales: 620000,
-    conversions: 31,
-  },
-  {
-    customId: 2,
-    name: "Niyas Ahmed",
-    short: "Niyas",
-    email: "niyas@entrain.in",
-    phone: "+91 98470 12002",
-    role: "Sales Executive",
-    target: 500000,
-    sales: 510000,
-    conversions: 27,
-  },
-  {
-    customId: 3,
-    name: "Fasil Rahman",
-    short: "Fasil",
-    email: "fasil@entrain.in",
-    phone: "+91 98470 12003",
-    role: "Sales Executive",
-    target: 500000,
-    sales: 425000,
-    conversions: 24,
-  },
-  {
-    customId: 4,
-    name: "Ameen Hassan",
-    short: "Ameen",
-    email: "ameen@entrain.in",
-    phone: "+91 98470 12004",
-    role: "Sales Executive",
-    target: 500000,
-    sales: 380000,
-    conversions: 22,
-  },
-  {
-    customId: 5,
-    name: "Shamil Khan",
-    short: "Shamil",
-    email: "shamil@entrain.in",
-    phone: "+91 98470 12005",
-    role: "Sales Executive",
-    target: 500000,
-    sales: 320000,
-    conversions: 19,
-  },
-  {
-    customId: 6,
-    name: "Anjali Nair",
-    short: "Anjali",
-    email: "anjali@entrain.in",
-    phone: "+91 98470 12006",
-    role: "Sales Executive",
-    target: 400000,
-    sales: 245000,
-    conversions: 16,
-  },
-  {
-    customId: 7,
-    name: "Rohan Mehta",
-    short: "Rohan",
-    email: "rohan@entrain.in",
-    phone: "+91 98470 12007",
-    role: "Sales Executive",
-    target: 400000,
-    sales: 210000,
-    conversions: 14,
-  },
-  {
-    customId: 8,
-    name: "Sneha Patel",
-    short: "Sneha",
-    email: "sneha@entrain.in",
-    phone: "+91 98470 12008",
-    role: "Sales Executive",
-    target: 400000,
-    sales: 180000,
-    conversions: 12,
-  },
-  {
-    customId: 9,
-    name: "Admin User",
-    short: "Admin",
-    email: (process.env.BOOTSTRAP_ADMIN_EMAIL || "admin@entrain.in").trim().toLowerCase(),
-    phone: "+91 98470 12000",
-    role: "Super Admin",
-    target: 1000000,
-    sales: 0,
-    conversions: 0,
-  },
-];
+
 
 const sources = [
-  "Facebook",
-  "WhatsApp",
+  "Meta Ads",
   "Instagram",
-  "Direct",
-  "Other",
+  "Facebook",
+  "Website",
+  "WhatsApp",
   "Referral",
+  "Walk-in",
+  "Other",
 ];
 
 const statuses = [
+  "New",
   "Contacted",
   "Follow-up",
-  "Qualified",
-  "Converted",
-  "Not Qualified",
+  "Interested",
+  "Quotation",
+  "Won",
   "Lost",
 ];
-
-const priorities = ["Cold", "Warm", "Hot"];
 
 const names = [
   "Aditya Sharma",
@@ -195,22 +96,14 @@ const seedDB = async () => {
     console.log("✅ Users seeded");
 
     // Seed Leads
-    const now = new Date();
-    const curYear = now.getFullYear();
-    const curMonth = String(now.getMonth() + 1).padStart(2, "0");
-    const todayNum = now.getDate();
-
     const createdLeads = [];
     for (let i = 0; i < names.length; i++) {
       const courseName = seedCourses[i % seedCourses.length].name;
       const courseFee = seedCourses[i % seedCourses.length].fee;
       const assignedExec = seedUsers[i % 8];
       const status = statuses[i % statuses.length];
-      const priority = priorities[i % priorities.length];
       const saleAmount = courseFee;
-      const advanceAmount = (status === "Converted" || status === "Won") ? Math.round((saleAmount * 0.25) / 1000) * 1000 : 0;
-      const createdDay = Math.max(1, Math.min(28, (todayNum - 10 + (i % 12))));
-      const nextFollowupDay = Math.min(28, createdDay + 2 + (i % 5));
+      const advanceAmount = status === "Won" ? Math.round((saleAmount * 0.25) / 1000) * 1000 : 0;
 
       const lead = await Lead.create({
         customId: i + 1,
@@ -223,17 +116,17 @@ const seedDB = async () => {
         source: sources[i % sources.length],
         assigned: assignedExec.name,
         status,
-        priority,
-        created: `${curYear}-${curMonth}-${String(createdDay).padStart(2, "0")}`,
-        date: `${curYear}-${curMonth}-${String(nextFollowupDay).padStart(2, "0")}`,
+        priority: ["High", "Medium", "Low"][i % 3],
+        created: `2026-09-${String(10 + (i % 18)).padStart(2, "0")}`,
+        date: `2026-09-${String(27 + (i % 4)).padStart(2, "0")}`,
         time: ["10:30", "11:00", "14:30", "16:00"][i % 4],
         saleAmount,
         advanceAmount,
         activities: [
-          { text: `Lead created from ${sources[i % sources.length]}`, time: "Yesterday · 10:00 AM" },
-          { text: `Assigned to ${assignedExec.name}`, time: "Yesterday · 10:15 AM" },
-          { text: "Introductory call completed", time: "Today · 11:30 AM" },
-          { text: "Follow-up scheduled", time: "Today · 02:00 PM" },
+          { text: `Lead created from ${sources[i % sources.length]}`, time: "24 Sep 2026 · 10:00 AM" },
+          { text: `Assigned to ${assignedExec.name}`, time: "24 Sep 2026 · 10:15 AM" },
+          { text: "Introductory call completed", time: "25 Sep 2026 · 11:30 AM" },
+          { text: "Follow-up scheduled", time: "26 Sep 2026 · 02:00 PM" },
         ],
       });
       createdLeads.push(lead);
@@ -281,7 +174,7 @@ const seedDB = async () => {
         direction: i % 3 ? "Outgoing" : "Incoming",
         duration: i % 4 ? "05:14" : "00:00",
         callStatus: i % 4 ? "Answered" : "Missed",
-        callDate: "Today",
+        callDate: "28 Sep 2026",
         callTime: `${10 + (i % 8)}:32 AM`,
         service: l.service,
         assigned: l.assigned,

@@ -23,10 +23,12 @@ const defaultAdmin = {
   customId: 1,
   name: "Admin User",
   short: "Admin",
-  email: (process.env.BOOTSTRAP_ADMIN_EMAIL || "admin@entrain.in").trim().toLowerCase(),
-  password: process.env.BOOTSTRAP_ADMIN_PASSWORD || "pass",
+  email: (process.env.ADMIN_EMAIL || process.env.BOOTSTRAP_ADMIN_EMAIL || "admin@entrain.com").trim().toLowerCase(),
+  password: process.env.ADMIN_PASSWORD || process.env.BOOTSTRAP_ADMIN_PASSWORD || "entrain@012",
   phone: "+91 98470 12000",
   role: "Super Admin",
+  team: "Management",
+  leader: "",
   target: 1000000,
   sales: 0,
   conversions: 0,
@@ -49,8 +51,14 @@ const cleanDB = async () => {
     console.log(`✅ Removed ${callsRes.deletedCount} calls.`);
     console.log(`✅ Removed ${tasksRes.deletedCount} tasks.`);
 
-    // Remove all dummy users, keep only the Super Admin
-    const usersRes = await User.deleteMany({ email: { $ne: defaultAdmin.email } });
+    // Remove all dummy users, keep only the Super Admin and afeela
+    const usersRes = await User.deleteMany({
+      email: { $ne: defaultAdmin.email },
+      $and: [
+        { email: { $not: /afeela/i } },
+        { name: { $not: /afeela/i } }
+      ]
+    });
     console.log(`✅ Removed ${usersRes.deletedCount} dummy user accounts.`);
 
     // Ensure Super Admin exists with valid password

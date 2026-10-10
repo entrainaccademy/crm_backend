@@ -6,8 +6,8 @@ import User from "../models/User.js";
 const setupSuperAdmin = async () => {
   try {
     await connectDB();
-    const email = "admin@entrain.in";
-    const password = "pass";
+    const email = (process.env.ADMIN_EMAIL || "admin@entrain.com").trim().toLowerCase();
+    const password = process.env.ADMIN_PASSWORD || "entrain@012";
 
     let user = await User.findOne({ email });
     if (user) {

@@ -2,13 +2,21 @@ import jwt from "jsonwebtoken";
 import User from "../models/User.js";
 
 export const protect = async (req, res, next) => {
+  let token = null;
+
   if (
     req.headers.authorization &&
     req.headers.authorization.startsWith("Bearer ")
   ) {
+    token = req.headers.authorization.split(" ")[1];
+  } else if (req.query && req.query.token) {
+    token = req.query.token;
+  }
+
+  if (token) {
     try {
       if (!process.env.JWT_SECRET) throw new Error("JWT secret is not configured");
-      const decoded = jwt.verify(req.headers.authorization.split(" ")[1], process.env.JWT_SECRET);
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
       req.user = await User.findById(decoded.id).select("-password");
       if (!req.user || req.user.status !== "Active") {
         return res.status(401).json({ success: false, message: "Account is unavailable" });
