@@ -41,6 +41,7 @@ const isOriginAllowed = (origin) => {
   const cleanOrigin = origin.replace(/\/+$/, "");
   if (configuredOrigins.includes(cleanOrigin)) return true;
   if (/\.vercel\.app$/.test(cleanOrigin)) return true;
+  if (/^https?:\/\/(www\.)?trackioleads\.com$/.test(cleanOrigin)) return true;
   if (process.env.NODE_ENV !== "production") {
     if (/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(cleanOrigin)) {
       return true;
