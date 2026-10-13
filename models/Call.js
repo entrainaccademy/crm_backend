@@ -62,8 +62,9 @@ const callSchema = new mongoose.Schema(
     notes: { type: String, default: "" },
 
     // Provider Telephony & Recording fields
-    provider: { type: String, default: "twilio" },
+    provider: { type: String, default: "" },
     providerCallId: { type: String, index: true, sparse: true },
+    providerVerifiedAt: { type: Date, default: null },
     providerLeg1Sid: { type: String, sparse: true },
     providerLeg2Sid: { type: String, sparse: true },
     recordingSid: { type: String, index: true, sparse: true },

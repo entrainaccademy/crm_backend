@@ -12,7 +12,13 @@
     "clean": "node seeds/clean.js",
     "db:clean": "node seeds/clean.js"
   },
-  "keywords": ["crm", "express", "mongodb", "mongoose", "rest-api"],
+  "keywords": [
+    "crm",
+    "express",
+    "mongodb",
+    "mongoose",
+    "rest-api"
+  ],
   "author": "ENTRAIN",
   "license": "ISC",
   "dependencies": {
@@ -22,6 +28,7 @@
     "express": "^4.21.0",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.6.3",
-    "morgan": "^1.10.0"
+    "morgan": "^1.10.0",
+    "twilio": "^5.13.1"
   }
 }

@@ -124,27 +124,18 @@ export const getCallById = async (req, res) => {
 // @access  Private
 export const logCall = async (req, res) => {
   try {
-    const data = { ...req.body };
+    // Only manual call facts may come from a CRM user. Provider evidence is never client supplied.
+    const allowed = ["leadId", "name", "phone", "direction", "duration", "callStatus", "callDate", "callTime", "service", "assigned", "notes"];
+    const data = Object.fromEntries(allowed.filter((key) => req.body[key] !== undefined).map((key) => [key, req.body[key]]));
     if (isSeller(req.user)) {
       data.assigned = req.user.name;
       data.executiveId = req.user._id;
     }
-
-    // Sanitize notes to prevent [object Object]
     data.notes = sanitizeNoteText(data.notes);
-    data.callType = data.callType || "manual";
-
-    // Duration calculation
-    if (data.duration && !data.durationSeconds) {
-      data.durationSeconds = parseDurationToSeconds(data.duration);
-    } else if (data.durationSeconds && !data.duration) {
-      data.duration = formatDuration(data.durationSeconds);
-    }
-
-    // If manual call, default recordingStatus is "Not recorded"
-    if (!data.recordingStatus) {
-      data.recordingStatus = "Not recorded";
-    }
+    data.callType = "manual";
+    data.recordingStatus = "Not recorded";
+    data.durationSeconds = parseDurationToSeconds(data.duration);
+    if (!data.duration) data.duration = "00:00";
 
     // Find linked lead if available
     if (data.leadId && !data.leadRef) {
@@ -165,7 +156,7 @@ export const logCall = async (req, res) => {
         await Lead.findByIdAndUpdate(call.leadRef, {
           $push: {
             activities: {
-              text: `Call logged by ${req.user.name} (${call.callStatus}, ${call.duration || "00:00"})`,
+              text: `Self-reported call logged by ${req.user.name} (${call.callStatus}, ${call.duration || "00:00"})`,
               time: "Just now",
               type: "call",
             },
@@ -196,13 +187,11 @@ export const updateCall = async (req, res) => {
       return res.status(403).json({ success: false, message: "You are not authorized to update this call log" });
     }
 
-    const updates = { ...req.body };
-    if (updates.notes !== undefined) {
-      updates.notes = sanitizeNoteText(updates.notes);
+    // Editing provider outcomes, SIDs, durations, and recording metadata would destroy the evidence.
+    if (Object.keys(req.body).some((key) => key !== "notes")) {
+      return res.status(400).json({ success: false, message: "Only call notes can be edited" });
     }
-    if (updates.duration && !updates.durationSeconds) {
-      updates.durationSeconds = parseDurationToSeconds(updates.duration);
-    }
+    const updates = { notes: sanitizeNoteText(req.body.notes) };
 
     const updated = await Call.findByIdAndUpdate(req.params.id, updates, { new: true, runValidators: true });
     res.json({ success: true, data: updated });
@@ -216,10 +205,14 @@ export const updateCall = async (req, res) => {
 // @access  Private (Managers, Super Admin)
 export const deleteCall = async (req, res) => {
   try {
-    const query = { _id: req.params.id };
+    const query = { _id: req.params.id, callType: "manual" };
     const call = await Call.findOneAndDelete(query);
     if (!call) {
-      return res.status(404).json({ success: false, message: "Call log not found" });
+      const existing = await Call.findById(req.params.id);
+      return res.status(existing ? 403 : 404).json({
+        success: false,
+        message: existing ? "Provider call evidence cannot be deleted" : "Call log not found",
+      });
     }
     res.json({ success: true, message: "Call log deleted", data: call });
   } catch (error) {

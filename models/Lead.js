@@ -76,6 +76,15 @@ const leadSchema = new mongoose.Schema(
     time: { type: String, default: "" },
     notes: [noteSchema],
     activities: [activitySchema],
+    statusAudit: [{
+      fromStatus: { type: String, default: "" },
+      toStatus: { type: String, required: true },
+      actorId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+      actorName: { type: String, required: true },
+      source: { type: String, enum: ["user", "provider"], required: true },
+      evidenceCallId: { type: mongoose.Schema.Types.ObjectId, ref: "Call" },
+      occurredAt: { type: Date, default: Date.now },
+    }],
   },
   {
     timestamps: true,

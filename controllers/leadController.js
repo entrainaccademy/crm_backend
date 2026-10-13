@@ -111,6 +111,8 @@ export const createLead = async (req, res) => {
       date: req.body.date ?? "",
       creationRequestId: creationRequestId || undefined,
     };
+    // Status audit belongs to the server, including during lead creation.
+    delete leadData.statusAudit;
     if (isSeller(req.user)) {
       leadData.assigned = req.user.name;
     }
@@ -188,6 +190,9 @@ export const updateLead = async (req, res) => {
     if (!canAccessAssigned(req.user, oldLead)) return res.status(403).json({ success: false, message: "Access denied" });
     if (!canWorkAssigned(req.user, oldLead)) return res.status(403).json({ success: false, message: "Only your assigned leads can be changed" });
 
+    if (Object.keys(req.body).some((key) => key.startsWith("statusAudit.") || key.startsWith("$"))) {
+      return res.status(400).json({ success: false, message: "Status audit is managed by the server" });
+    }
     const updates = { ...req.body };
     delete updates._id;
     delete updates.id;
@@ -196,6 +201,7 @@ export const updateLead = async (req, res) => {
     delete updates.createdAt;
     delete updates.updatedAt;
     delete updates.convertedAt;
+    delete updates.statusAudit;
     if (isSeller(req.user) && updates.assigned !== undefined && updates.assigned !== req.user.name) return res.status(403).json({ success: false, message: "Access denied" });
     if (updates.assigned && updates.assigned !== oldLead.assigned && !await validAssignee(updates.assigned)) return res.status(400).json({ success: false, message: "Choose an active Team Lead or Sales Executive" });
     if (updates.service !== undefined && updates.service !== oldLead.service && !await Course.exists({ name: updates.service, status: "Active" })) {
@@ -203,6 +209,7 @@ export const updateLead = async (req, res) => {
     }
 
     // Record activity if status changed
+    let statusAuditEntry = null;
     if (updates.status && updates.status !== oldLead.status) {
       updates.convertedAt = ["Converted", "Won"].includes(updates.status)
         ? (["Converted", "Won"].includes(oldLead.status) ? oldLead.convertedAt || oldLead.updatedAt : new Date())
@@ -220,6 +227,14 @@ export const updateLead = async (req, res) => {
         type: "status_change",
       });
       updates.activities = oldLead.activities;
+      statusAuditEntry = {
+        fromStatus: oldLead.status || "",
+        toStatus: updates.status,
+        actorId: req.user._id,
+        actorName: req.user.name,
+        source: "user",
+        occurredAt: new Date(),
+      };
     }
     if (["Converted", "Won"].includes(oldLead.status) && !oldLead.convertedAt && updates.convertedAt === undefined) {
       updates.convertedAt = oldLead.updatedAt;
@@ -242,10 +257,14 @@ export const updateLead = async (req, res) => {
       updates.activities = oldLead.activities;
     }
 
-    let lead = await Lead.findOneAndUpdate(query, updates, {
+    const operation = { $set: updates };
+    if (statusAuditEntry) operation.$push = { statusAudit: statusAuditEntry };
+    const updateQuery = statusAuditEntry ? { ...query, status: oldLead.status } : query;
+    let lead = await Lead.findOneAndUpdate(updateQuery, operation, {
       new: true,
       runValidators: true,
     });
+    if (!lead) return res.status(409).json({ success: false, message: "Lead status changed. Refresh and try again." });
     await Followup.updateMany(
       { leadId: oldLead.customId },
       { $set: {

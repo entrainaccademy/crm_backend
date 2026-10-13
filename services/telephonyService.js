@@ -45,6 +45,41 @@ export function formatDuration(seconds) {
   ].join(":");
 }
 
+async function markLeadNotConnected(call) {
+  if (!call.leadRef || !["Missed", "Busy"].includes(call.callStatus)) return;
+  const lead = await Lead.findOne({ _id: call.leadRef, status: { $in: ["", "New"] } }).select("status");
+  if (!lead) return;
+  const now = new Date();
+  await Lead.findOneAndUpdate(
+    { _id: call.leadRef, status: lead.status },
+    {
+      $set: { status: "Not Connected" },
+      $push: {
+        statusAudit: {
+          fromStatus: lead.status || "",
+          toStatus: "Not Connected",
+          actorName: "Twilio",
+          source: "provider",
+          evidenceCallId: call._id,
+          occurredAt: now,
+        },
+        activities: {
+          text: `Status changed to Not Connected after provider-confirmed ${call.callStatus.toLowerCase()} call`,
+          time: now.toLocaleString("en-US"),
+          type: "status_change",
+        },
+      },
+    },
+    { runValidators: true },
+  );
+}
+
+function matchesProviderSid(call, sid, leg = "agent") {
+  if (!sid || call.callType !== "telephony" || !call.providerCallId) return false;
+  if (leg === "customer") return !call.providerLeg2Sid || call.providerLeg2Sid === sid;
+  return call.providerCallId === sid || call.providerLeg1Sid === sid;
+}
+
 /**
  * Get Telephony provider configuration status
  */
@@ -297,7 +332,12 @@ export async function handleStatusCallback({ callId, leg = "agent", body = {} })
   const call = await Call.findOne(query);
   if (!call) return null;
 
+  if (!matchesProviderSid(call, body.CallSid, leg)) return null;
+  if (leg === "customer" && !call.providerLeg2Sid) call.providerLeg2Sid = body.CallSid;
   const twilioStatus = (body.CallStatus || "").toLowerCase();
+  if (["busy", "no-answer", "failed", "canceled", "completed"].includes(twilioStatus)) {
+    call.providerVerifiedAt = new Date();
+  }
   const durationSec = parseInt(body.CallDuration || body.Duration || "0", 10);
 
   if (leg === "agent") {
@@ -320,10 +360,7 @@ export async function handleStatusCallback({ callId, leg = "agent", body = {} })
       if (call.recordingStatus === "Processing") call.recordingStatus = "Not recorded";
       call.endedAt = new Date();
     } else if (twilioStatus === "completed") {
-      if (durationSec > 0 && (!call.durationSeconds || call.durationSeconds === 0)) {
-        call.durationSeconds = durationSec;
-        call.duration = formatDuration(durationSec);
-      }
+      // Agent-leg duration includes setup and ringing; only the customer leg measures talk time.
       call.endedAt = new Date();
     }
   } else if (leg === "customer") {
@@ -331,6 +368,10 @@ export async function handleStatusCallback({ callId, leg = "agent", body = {} })
       call.callStatus = "Ringing";
     } else if (twilioStatus === "in-progress") {
       call.callStatus = "In Progress";
+    } else if (twilioStatus === "busy" || twilioStatus === "no-answer") {
+      call.callStatus = twilioStatus === "busy" ? "Busy" : "Missed";
+      if (call.recordingStatus === "Processing") call.recordingStatus = "Not recorded";
+      call.endedAt = new Date();
     } else if (twilioStatus === "completed") {
       if (durationSec > 0) {
         call.durationSeconds = durationSec;
@@ -342,6 +383,7 @@ export async function handleStatusCallback({ callId, leg = "agent", body = {} })
   }
 
   await call.save();
+  if (leg === "customer") await markLeadNotConnected(call);
   return call;
 }
 
@@ -353,7 +395,12 @@ export async function handleDialAction({ callId, body = {} }) {
   const call = await Call.findOne(query);
   if (!call) return null;
 
+  if (!matchesProviderSid(call, body.CallSid)) return null;
+  if (body.DialCallSid && call.providerLeg2Sid && call.providerLeg2Sid !== body.DialCallSid) return null;
   const dialStatus = (body.DialCallStatus || "").toLowerCase();
+  if (["completed", "answered", "busy", "no-answer", "failed", "canceled"].includes(dialStatus)) {
+    call.providerVerifiedAt = new Date();
+  }
   const dialDurationSec = parseInt(body.DialCallDuration || "0", 10);
 
   if (body.DialCallSid) {
@@ -379,6 +426,7 @@ export async function handleDialAction({ callId, body = {} }) {
 
   call.endedAt = new Date();
   await call.save();
+  await markLeadNotConnected(call);
   return call;
 }
 
@@ -399,7 +447,11 @@ export async function handleRecordingCallback({ callId, body = {} }) {
   const call = await Call.findOne(query);
   if (!call) return null;
 
+  if (!matchesProviderSid(call, body.CallSid) && body.CallSid !== call.providerLeg2Sid) return null;
   const recordingStatus = (body.RecordingStatus || "").toLowerCase();
+  if (recordingStatus === "completed" && body.RecordingUrl) {
+    call.providerVerifiedAt = new Date();
+  }
   const recordingSid = body.RecordingSid;
   const recordingUrl = body.RecordingUrl;
   const recordingDurationSec = parseInt(body.RecordingDuration || "0", 10);

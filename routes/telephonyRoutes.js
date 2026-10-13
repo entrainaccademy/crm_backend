@@ -1,4 +1,5 @@
 import express from "express";
+import { verifyTwilioWebhook } from "../middleware/verifyTwilioWebhook.js";
 import { protect, authorizeRoles } from "../middleware/authMiddleware.js";
 import {
   getProviderStatus,
@@ -23,9 +24,9 @@ router.post(
 router.get("/call/:id/status", protect, getCallStatus);
 
 // Public Provider Webhooks (Called directly by Twilio)
-router.all("/webhook/twiml", serveTwiml);
-router.post("/webhook/status", handleStatusWebhook);
-router.post("/webhook/dial-action", handleDialActionWebhook);
-router.post("/webhook/recording", handleRecordingWebhook);
+router.all("/webhook/twiml", verifyTwilioWebhook, serveTwiml);
+router.post("/webhook/status", verifyTwilioWebhook, handleStatusWebhook);
+router.post("/webhook/dial-action", verifyTwilioWebhook, handleDialActionWebhook);
+router.post("/webhook/recording", verifyTwilioWebhook, handleRecordingWebhook);
 
 export default router;
