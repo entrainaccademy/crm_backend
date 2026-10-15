@@ -148,9 +148,7 @@ export const logCall = async (req, res) => {
 
     // Find linked lead if available
     if (data.leadId && !data.leadRef) {
-      const lead = await Lead.findOne({
-        $or: [{ customId: Number(data.leadId) }, { _id: data.leadId }],
-      });
+      const lead = await Lead.findOne({ customId: Number(data.leadId) });
       if (lead) {
         data.leadRef = lead._id;
         data.leadId = lead.customId;
