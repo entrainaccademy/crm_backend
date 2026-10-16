@@ -48,6 +48,7 @@ const leadSchema = new mongoose.Schema(
       type: String,
       enum: [
         "",
+        "Leads",
         "Not Connected",
         "Contacted",
         "Follow-up",
