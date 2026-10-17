@@ -12,6 +12,16 @@ const validAssignee = (name) => User.exists({
   role: { $in: ["Team Lead", "Sales Executive"] },
 });
 
+const validLeadPhone = (phone, code, required = false) => {
+  if (!phone) return !required;
+  if (!/^\+[1-9]\d{0,2}$/.test(code || "")) return false;
+  if (!String(phone).startsWith(code)) return false;
+  const nationalNumber = String(phone).slice(code.length);
+  return /^\d{4,14}$/.test(nationalNumber)
+    && code.length - 1 + nationalNumber.length <= 15
+    && (code !== "+91" || nationalNumber.length === 10);
+};
+
 // @desc    Get all leads with filters & search
 // @route   GET /api/leads
 export const getLeads = async (req, res) => {
@@ -111,6 +121,12 @@ export const createLead = async (req, res) => {
       date: req.body.date ?? "",
       creationRequestId: creationRequestId || undefined,
     };
+    if (leadData.phoneCountryCode && !validLeadPhone(leadData.phone, leadData.phoneCountryCode, true)) {
+      return res.status(400).json({ success: false, message: "Enter a valid phone country code and number" });
+    }
+    if (leadData.whatsappCountryCode && !validLeadPhone(leadData.whatsapp, leadData.whatsappCountryCode)) {
+      return res.status(400).json({ success: false, message: "Enter a valid WhatsApp country code and number" });
+    }
     if (isSeller(req.user)) {
       leadData.assigned = req.user.name;
     }
@@ -189,6 +205,12 @@ export const updateLead = async (req, res) => {
     if (!canWorkAssigned(req.user, oldLead)) return res.status(403).json({ success: false, message: "Only your assigned leads can be changed" });
 
     const updates = { ...req.body };
+    if (updates.phoneCountryCode && !validLeadPhone(updates.phone ?? oldLead.phone, updates.phoneCountryCode, true)) {
+      return res.status(400).json({ success: false, message: "Enter a valid phone country code and number" });
+    }
+    if (updates.whatsappCountryCode && !validLeadPhone(updates.whatsapp ?? oldLead.whatsapp, updates.whatsappCountryCode)) {
+      return res.status(400).json({ success: false, message: "Enter a valid WhatsApp country code and number" });
+    }
     delete updates._id;
     delete updates.id;
     delete updates.customId;
