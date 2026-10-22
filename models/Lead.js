@@ -24,6 +24,7 @@ const leadSchema = new mongoose.Schema(
     creationRequestId: { type: String, unique: true, sparse: true, index: true },
     name: { type: String, required: true, trim: true },
     phone: { type: String, trim: true },
+    phoneKey: { type: String, select: false },
     phoneCountryCode: { type: String, trim: true },
     whatsapp: { type: String, trim: true },
     whatsappCountryCode: { type: String, trim: true },
@@ -85,6 +86,11 @@ const leadSchema = new mongoose.Schema(
     toJSON: { virtuals: true },
     toObject: { virtuals: true },
   }
+);
+
+leadSchema.index(
+  { phoneKey: 1 },
+  { unique: true, partialFilterExpression: { phoneKey: { $type: "string" } } },
 );
 
 // Virtual id matching frontend `id`

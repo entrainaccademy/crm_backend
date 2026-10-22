@@ -5,6 +5,25 @@ import Course from "../models/Course.js";
 import { notifyAssigneeSafely } from "../utils/assignmentNotification.js";
 import { ensureLeadFollowup, refreshLeadNextFollowup } from "../utils/followupSchedule.js";
 import { applyAssignmentScope, canAccessAssigned, canWorkAssigned, isExecutive, isSeller } from "../middleware/scope.js";
+import { leadPhoneKey } from "../utils/leadPhone.js";
+
+const duplicatePhoneMessage = "This phone number is already saved as a lead.";
+
+const phoneAlreadyUsed = async (phoneKey, excludeId) => {
+  if (!phoneKey) return false;
+  const notCurrentLead = excludeId ? { _id: { $ne: excludeId } } : {};
+  if (await Lead.exists({ ...notCurrentLead, phoneKey })) return true;
+
+  // Records saved before phoneKey existed still need to block duplicates.
+  const olderLeads = await Lead.find({
+    ...notCurrentLead,
+    phone: { $exists: true, $ne: "" },
+    phoneKey: { $exists: false },
+  }).select("phone").lean();
+  return olderLeads.some((lead) => leadPhoneKey(lead.phone) === phoneKey);
+};
+
+const duplicatePhoneResponse = (res) => res.status(409).json({ success: false, code: "DUPLICATE_PHONE", message: duplicatePhoneMessage });
 
 const validAssignee = (name) => User.exists({
   name,
@@ -121,6 +140,7 @@ export const createLead = async (req, res) => {
       date: req.body.date ?? "",
       creationRequestId: creationRequestId || undefined,
     };
+    leadData.phoneKey = leadPhoneKey(leadData.phone) || undefined;
     if (leadData.phoneCountryCode && !validLeadPhone(leadData.phone, leadData.phoneCountryCode, true)) {
       return res.status(400).json({ success: false, message: "Enter a valid phone country code and number" });
     }
@@ -143,6 +163,7 @@ export const createLead = async (req, res) => {
     if (!await Course.exists({ name: leadData.service, status: "Active" })) {
       return res.status(400).json({ success: false, message: "Choose an active course" });
     }
+    if (await phoneAlreadyUsed(leadData.phoneKey)) return duplicatePhoneResponse(res);
 
     // If initial activity is not provided, add default
     if (!leadData.activities || leadData.activities.length === 0) {
@@ -186,6 +207,7 @@ export const createLead = async (req, res) => {
         return res.json({ success: true, data: existing });
       }
     }
+    if (error.code === 11000 && error.keyPattern?.phoneKey) return duplicatePhoneResponse(res);
     res.status(400).json({ success: false, message: error.message });
   }
 };
@@ -205,6 +227,9 @@ export const updateLead = async (req, res) => {
     if (!canWorkAssigned(req.user, oldLead)) return res.status(403).json({ success: false, message: "Only your assigned leads can be changed" });
 
     const updates = { ...req.body };
+    delete updates.phoneKey;
+    const nextPhoneKey = updates.phone === undefined ? leadPhoneKey(oldLead.phone) : leadPhoneKey(updates.phone);
+    const oldPhoneKey = leadPhoneKey(oldLead.phone);
     if (updates.phoneCountryCode && !validLeadPhone(updates.phone ?? oldLead.phone, updates.phoneCountryCode, true)) {
       return res.status(400).json({ success: false, message: "Enter a valid phone country code and number" });
     }
@@ -222,6 +247,10 @@ export const updateLead = async (req, res) => {
     if (updates.assigned && updates.assigned !== oldLead.assigned && !await validAssignee(updates.assigned)) return res.status(400).json({ success: false, message: "Choose an active Team Lead or Sales Executive" });
     if (updates.service !== undefined && updates.service !== oldLead.service && !await Course.exists({ name: updates.service, status: "Active" })) {
       return res.status(400).json({ success: false, message: "Choose an active course" });
+    }
+    if (updates.phone !== undefined && nextPhoneKey !== oldPhoneKey) {
+      if (await phoneAlreadyUsed(nextPhoneKey, oldLead._id)) return duplicatePhoneResponse(res);
+      updates.phoneKey = nextPhoneKey || null;
     }
 
     // Record activity if status changed
@@ -293,6 +322,7 @@ export const updateLead = async (req, res) => {
 
     res.json({ success: true, data: lead });
   } catch (error) {
+    if (error.code === 11000 && error.keyPattern?.phoneKey) return duplicatePhoneResponse(res);
     res.status(400).json({ success: false, message: error.message });
   }
 };
