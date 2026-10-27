@@ -63,6 +63,7 @@ const leadSchema = new mongoose.Schema(
         "Interested",
         "Quotation",
         "Won",
+        "Sale",
       ],
       default: "",
       index: true,

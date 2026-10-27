@@ -156,7 +156,7 @@ export const createLead = async (req, res) => {
       leadData.date = "";
       leadData.time = "";
     }
-    leadData.convertedAt = ["Converted", "Won"].includes(leadData.status) ? new Date() : null;
+    leadData.convertedAt = ["Converted", "Won", "Sale"].includes(leadData.status) ? new Date() : null;
     if (!leadData.assigned || !await validAssignee(leadData.assigned)) {
       return res.status(400).json({ success: false, message: "Choose an active Team Lead or Sales Executive" });
     }
@@ -255,8 +255,8 @@ export const updateLead = async (req, res) => {
 
     // Record activity if status changed
     if (updates.status && updates.status !== oldLead.status) {
-      updates.convertedAt = ["Converted", "Won"].includes(updates.status)
-        ? (["Converted", "Won"].includes(oldLead.status) ? oldLead.convertedAt || oldLead.updatedAt : new Date())
+      updates.convertedAt = ["Converted", "Won", "Sale"].includes(updates.status)
+        ? (["Converted", "Won", "Sale"].includes(oldLead.status) ? oldLead.convertedAt || oldLead.updatedAt : new Date())
         : null;
       const nowStr = new Date().toLocaleString("en-US", {
         day: "numeric",
@@ -272,7 +272,7 @@ export const updateLead = async (req, res) => {
       });
       updates.activities = oldLead.activities;
     }
-    if (["Converted", "Won"].includes(oldLead.status) && !oldLead.convertedAt && updates.convertedAt === undefined) {
+    if (["Converted", "Won", "Sale"].includes(oldLead.status) && !oldLead.convertedAt && updates.convertedAt === undefined) {
       updates.convertedAt = oldLead.updatedAt;
     }
 

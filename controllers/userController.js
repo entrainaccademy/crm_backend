@@ -51,7 +51,7 @@ export const getLeaderboard = async (req, res) => {
       leaderboardVisible: { $ne: false },
     }).select("name short target role status leaderboardVisible");
     const totals = await Lead.aggregate([
-      { $match: { assigned: { $in: users.map((user) => user.name) }, status: { $in: ["Converted", "Won"] } } },
+      { $match: { assigned: { $in: users.map((user) => user.name) }, status: { $in: ["Converted", "Won", "Sale"] } } },
       { $addFields: { conversionDate: { $ifNull: ["$convertedAt", "$updatedAt"] } } },
       ...(start || end ? [{ $match: { conversionDate: { ...(start ? { $gte: start } : {}), ...(end ? { $lte: end } : {}) } } }] : []),
       { $group: { _id: "$assigned", sales: { $sum: "$saleAmount" }, conversions: { $sum: 1 } } },
